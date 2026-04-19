@@ -4,7 +4,7 @@ import "./App.css";
 function App() {
   
   async function getFile() {
-    const files = await invoke("get_file", { search: ".exe" });
+    const files = await invoke("buscar_con_ignore", { patron: ".rs" });
     console.log(files);
   }
 

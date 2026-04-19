@@ -5,6 +5,4 @@ use std::path::PathBuf;
 pub struct FileDTO {
     pub name: String,
     pub path: PathBuf,
-    pub is_dir: bool,
-    pub size: u64,
 }
