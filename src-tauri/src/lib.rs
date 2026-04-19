@@ -1,26 +1,24 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use walkdir::DirEntry;
-use crate::dto::FileDTO;
+mod models;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+use walkdir::DirEntry;
+use walkdir::WalkDir;
+use crate::models::file_dto::FileDTO;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+    .invoke_handler(tauri::generate_handler![get_file, get_files])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[tauri::command]
-    fn get_files(search: String) -> Vec<FileDTO> {
+    fn get_file(search: String) -> Vec<FileDTO> {
         let mut files = Vec::new();
 
-        for entry in walkdir::new("./")
+        for entry in WalkDir::new("C:\\Users\\kenay\\OneDrive\\Desktop")
             .into_iter()
             .filter_map(|e| e.ok()) {
                 let name  = entry.file_name().to_string_lossy();
@@ -31,7 +29,16 @@ pub fn run() {
             }
         files
     }
-
+#[tauri::command]
+    fn get_files(path: String) -> Vec<FileDTO> {
+        let files = WalkDir::new(path)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .map(|e| transform_entry(&e))
+            .collect::<Vec<FileDTO>>();
+        files
+    }
     
     
     fn transform_entry(entry: &DirEntry) -> FileDTO {
