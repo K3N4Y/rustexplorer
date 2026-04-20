@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
+import BreadcrumbPath from './BreadcrumbPath';
 
 // Interfaz para cada archivo/carpeta
 interface FileItem {
@@ -30,17 +31,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setFiles(initialFiles);
   }, [initialFiles]);
 
+  React.useEffect(() => {
+    setCurrentPath(initialPath);
+  }, [initialPath]);
+
   const isFolder = (item: FileItem): boolean => item.isDirectory;
+
+  const navigateToPath = async (path: string) => {
+    try {
+      const nextFiles = await onLoadFolder(path);
+      setFiles(nextFiles);
+      setCurrentPath(path);
+    } catch (error) {
+      console.error('Error loading folder:', error);
+    }
+  };
 
   const handleItemClick = async (item: FileItem) => {
     if (isFolder(item)) {
-      try {
-        const newFiles = await onLoadFolder(item.path);
-        setFiles(newFiles);
-        setCurrentPath(item.path);
-      } catch (error) {
-        console.error('Error loading folder:', error);
-      }
+      await navigateToPath(item.path);
     }
     // Si es archivo, no hacemos nada (podrías agregar onClick para abrirlo)
   };
@@ -89,6 +98,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   return (
     <div className="w-full mx-auto border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+      <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
+
       {/* Header */}
       <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-gray-50 text-sm font-semibold text-gray-600 border-b border-gray-200">
         <span>Name</span>
@@ -140,13 +151,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <button
             onClick={async () => {
               const parentPath = getParentPath(currentPath);
-              try {
-                const parentFiles = await onLoadFolder(parentPath);
-                setFiles(parentFiles);
-                setCurrentPath(parentPath);
-              } catch (err) {
-                console.error('Error going back:', err);
-              }
+              await navigateToPath(parentPath);
             }}
             className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
           >
