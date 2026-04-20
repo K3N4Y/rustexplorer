@@ -1,0 +1,197 @@
+import React from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  HardDrive,
+  LoaderCircle,
+} from 'lucide-react';
+import { SidebarContent, SidebarHeader } from './ui/sidebar';
+import type { FileItem } from './file-types';
+
+interface FileTreeSidebarProps {
+  rootPath: string;
+  currentPath: string;
+  onNavigate: (path: string) => Promise<unknown>;
+  onLoadFolder: (path: string) => Promise<FileItem[]>;
+}
+
+function normalizePath(path: string): string {
+  const normalized = path.replace(/\//g, '\\').replace(/\\+$/, '');
+  if (normalized.endsWith(':')) {
+    return `${normalized}\\`;
+  }
+  return normalized;
+}
+
+function getNodeName(path: string): string {
+  const normalized = normalizePath(path);
+  const parts = normalized.split('\\').filter(Boolean);
+  return parts[parts.length - 1] || normalized;
+}
+
+function isSelectedPath(path: string, currentPath: string): boolean {
+  return normalizePath(path).toLowerCase() === normalizePath(currentPath).toLowerCase();
+}
+
+const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
+  rootPath,
+  currentPath,
+  onNavigate,
+  onLoadFolder,
+}) => {
+  const root = React.useMemo(() => normalizePath(rootPath), [rootPath]);
+  const [expandedPaths, setExpandedPaths] = React.useState<Set<string>>(() => new Set([root]));
+  const [directoriesByPath, setDirectoriesByPath] = React.useState<Record<string, FileItem[]>>({});
+  const [loadingPaths, setLoadingPaths] = React.useState<Set<string>>(new Set());
+
+  const ensureLoaded = React.useCallback(
+    async (path: string) => {
+      const normalized = normalizePath(path);
+
+      if (directoriesByPath[normalized]) {
+        return;
+      }
+
+      setLoadingPaths((prev) => {
+        const next = new Set(prev);
+        next.add(normalized);
+        return next;
+      });
+
+      try {
+        const items = await onLoadFolder(normalized);
+        const onlyDirectories = items
+          .filter((item) => item.isDirectory)
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        setDirectoriesByPath((prev) => ({
+          ...prev,
+          [normalized]: onlyDirectories,
+        }));
+      } catch (error) {
+        console.error('Error loading tree node:', error);
+      } finally {
+        setLoadingPaths((prev) => {
+          const next = new Set(prev);
+          next.delete(normalized);
+          return next;
+        });
+      }
+    },
+    [directoriesByPath, onLoadFolder],
+  );
+
+  React.useEffect(() => {
+    void ensureLoaded(root);
+  }, [root, ensureLoaded]);
+
+  const toggleExpand = async (path: string) => {
+    const normalized = normalizePath(path);
+
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(normalized)) {
+        next.delete(normalized);
+      } else {
+        next.add(normalized);
+      }
+      return next;
+    });
+
+    await ensureLoaded(normalized);
+  };
+
+  const renderNode = (path: string, level: number) => {
+    const normalized = normalizePath(path);
+    const isExpanded = expandedPaths.has(normalized);
+    const isLoading = loadingPaths.has(normalized);
+    const children = directoriesByPath[normalized] ?? [];
+
+    return (
+      <div key={normalized}>
+        <div
+          className={`flex items-center gap-1 rounded-md px-2 py-1 text-sm ${
+            isSelectedPath(normalized, currentPath)
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          }`}
+          style={{ paddingLeft: `${8 + level * 14}px` }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              void toggleExpand(normalized);
+            }}
+            className="inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+            aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              void onNavigate(normalized);
+            }}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left"
+            title={normalized}
+          >
+            {isExpanded ? (
+              <FolderOpen className="h-4 w-4 text-amber-500" aria-hidden="true" />
+            ) : (
+              <Folder className="h-4 w-4 text-amber-500" aria-hidden="true" />
+            )}
+            <span className="truncate">{getNodeName(normalized)}</span>
+          </button>
+        </div>
+
+        {isExpanded && (
+          <div>
+            {isLoading && (
+              <div
+                className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground"
+                style={{ paddingLeft: `${22 + level * 14}px` }}
+              >
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                Loading folders...
+              </div>
+            )}
+
+            {!isLoading && children.length === 0 && (
+              <div
+                className="px-2 py-1 text-xs text-muted-foreground"
+                style={{ paddingLeft: `${22 + level * 14}px` }}
+              >
+                Empty
+              </div>
+            )}
+
+            {!isLoading &&
+              children.map((child) => renderNode(child.path, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <SidebarHeader>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <HardDrive className="h-4 w-4 text-sky-600" aria-hidden="true" />
+          <span>File Tree</span>
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent>{renderNode(root, 0)}</SidebarContent>
+    </>
+  );
+};
+
+export default FileTreeSidebar;

@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
 import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
-
-// Interfaz para cada archivo/carpeta
-interface FileItem {
-  name: string;
-  path: string;
-  size: number;
-  modified: string | null;
-  isDirectory: boolean;
-}
+import type { FileItem } from './file-types';
 
 // Props del componente
 interface FileExplorerProps {
   initialFiles: FileItem[];
   initialPath?: string;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
+  onPathChange?: (path: string, files: FileItem[]) => void;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
   initialPath = '/',
   onLoadFolder,
+  onPathChange,
 }) => {
   const [files, setFiles] = useState<FileItem[]>(initialFiles);
   const [currentPath, setCurrentPath] = useState<string>(initialPath);
@@ -42,6 +36,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       const nextFiles = await onLoadFolder(path);
       setFiles(nextFiles);
       setCurrentPath(path);
+      onPathChange?.(path, nextFiles);
     } catch (error) {
       console.error('Error loading folder:', error);
     }
