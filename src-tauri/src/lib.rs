@@ -2,6 +2,8 @@
 mod models;
 
 use crate::models::file_dto::FileDTO;
+use crate::models::file_detail_dto::FileDetailDTO;
+use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
 use std::{fs, path::Path, sync::mpsc};
 
@@ -53,24 +55,31 @@ async fn search_with_ignore(pattern: String) -> Result<Vec<FileDTO>, String> {
 }
 
 #[tauri::command]
-fn get_files(path: String) -> Result<Vec<FileDTO>, String> {
+fn get_files(path: String) -> Result<Vec<FileDetailDTO>, String> {
     read_one_level_files(Path::new(&path)).map_err(|err| err.to_string())
 }
 
-fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDTO>> {
+fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
     let mut files = Vec::new();
 
     for entry in fs::read_dir(path)? {
         let entry = entry?;
-
-        let file_type = entry.file_type()?;
-
-        if file_type.is_file() || file_type.is_dir() {
-            files.push(FileDTO {
-                name: entry.file_name().to_string_lossy().to_string(),
-                path: entry.path(),
+        let metadata = entry.metadata()?;
+        
+        let modified = metadata
+            .modified()
+            .ok()
+            .map(|time| {
+                let datetime: DateTime<Utc> = time.into();
+                datetime.to_rfc3339()
             });
-        }
+
+        files.push(FileDetailDTO {
+            name: entry.file_name().to_string_lossy().to_string(),
+            path: entry.path(),
+            size: metadata.len(),
+            modified,
+        });
     }
 
     files.sort_by(|left, right| left.name.cmp(&right.name));
