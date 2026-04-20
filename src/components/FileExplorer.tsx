@@ -20,6 +20,17 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const currentPath = initialPath;
   const files = initialFiles;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [initialFiles, currentPath]);
+
+  const totalPages = Math.ceil(files.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const visibleFiles = files.slice(startIndex, startIndex + itemsPerPage);
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
@@ -94,7 +105,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       </div>
 
       {/* Files List */}
-      {files.map((file, index) => {
+      {visibleFiles.map((file, index) => {
         const folder = isFolder(file);
         return (
           <div
@@ -142,6 +153,34 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           >
             ← Back
           </button>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-between">
+          <span className="text-sm text-gray-600">
+            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
+          </span>
+          <div className="flex items-center gap-4 text-sm">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-gray-700 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
