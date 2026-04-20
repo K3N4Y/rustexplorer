@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
 
 // Interfaz para cada archivo/carpeta
 interface FileItem {
@@ -87,16 +88,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+    <div className="w-full mx-auto border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
       {/* Header */}
-      <div className="grid grid-cols-[40px_1fr_120px_100px_150px_150px_40px] px-4 py-3 bg-gray-50 text-sm font-semibold text-gray-600 border-b border-gray-200">
-        <input type="checkbox" className="w-4 h-4" />
-        <span>Nombre</span>
-        <span>Tipo</span>
-        <span>Tamaño</span>
-        <span>Modificado</span>
-        <span>Ruta</span>
-        <span></span>
+      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-gray-50 text-sm font-semibold text-gray-600 border-b border-gray-200">
+        <span>Name</span>
+        <span>Modified</span>
+        <span>Type</span>
+        <span>Size</span>
       </div>
 
       {/* Files List */}
@@ -105,37 +103,33 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         return (
           <div
             key={index}
-            className={`grid grid-cols-[40px_1fr_120px_100px_150px_150px_40px] px-4 py-3 border-b border-gray-100 items-center cursor-pointer transition-colors duration-150 ${
+            className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-gray-100 items-center cursor-pointer transition-colors duration-150 ${
               hoveredIndex === index ? 'bg-gray-50' : 'bg-white'
             }`}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
             onClick={() => handleItemClick(file)}
           >
-            <input type="checkbox" className="w-4 h-4" />
-            
             {/* Name + Icon */}
             <div className="flex items-center gap-2 truncate">
-              <span className="text-lg">{folder ? '📁' : '📄'}</span>
+              {folder ? (
+                <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
+              ) : (
+                <FileIcon className="h-5 w-5 text-slate-500" strokeWidth={1.8} aria-hidden="true" />
+              )}
               <span className="truncate text-sm text-gray-800">{file.name}</span>
             </div>
-
-            {/* Type Badge */}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-              {folder ? 'Carpeta' : 'Archivo'}
-            </span>
-
-            {/* Size */}
-            <span className="text-sm text-gray-600">{formatSize(file.size, folder)}</span>
 
             {/* Modified */}
             <span className="text-sm text-gray-600">{formatDate(file.modified)}</span>
 
-            {/* Path */}
-            <span className="text-xs text-gray-500 truncate">{file.path}</span>
+            {/* Type Badge */}
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              {folder ? 'Directory' : 'File'}
+            </span>
 
-            {/* Menu Dots */}
-            <div className="text-right text-gray-400 hover:text-gray-600">⋮</div>
+            {/* Size */}
+            <span className="text-sm text-gray-600">{formatSize(file.size, folder)}</span>
           </div>
         );
       })}
@@ -156,7 +150,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             }}
             className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
           >
-            ← Volver
+            ← Back
           </button>
         </div>
       )}
