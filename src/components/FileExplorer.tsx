@@ -17,25 +17,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   onLoadFolder,
   onPathChange,
 }) => {
-  const [files, setFiles] = useState<FileItem[]>(initialFiles);
-  const [currentPath, setCurrentPath] = useState<string>(initialPath);
+  const currentPath = initialPath;
+  const files = initialFiles;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
-  React.useEffect(() => {
-    setFiles(initialFiles);
-  }, [initialFiles]);
-
-  React.useEffect(() => {
-    setCurrentPath(initialPath);
-  }, [initialPath]);
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
   const navigateToPath = async (path: string) => {
     try {
       const nextFiles = await onLoadFolder(path);
-      setFiles(nextFiles);
-      setCurrentPath(path);
       onPathChange?.(path, nextFiles);
     } catch (error) {
       console.error('Error loading folder:', error);
