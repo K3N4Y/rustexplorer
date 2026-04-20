@@ -9,40 +9,49 @@ use std::sync::mpsc;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![buscar_con_ignore])
+        .invoke_handler(tauri::generate_handler![search_with_ignore])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn buscar_con_ignore(patron: &str) -> Vec<FileDTO> {
-    let (tx, rx) = mpsc::channel(); // Canal para comunicar hilos
-    let buscador = WalkBuilder::new("./").build_parallel(); // Carga todos los núcleos
+async fn search_with_ignore(pattern: String) -> Result<Vec<FileDTO>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (tx, rx) = mpsc::channel();
 
-    buscador.run(|| {
-        let tx = tx.clone();
-        let patron = patron.to_string();
-        
-        Box::new(move |result| {
-            if let Ok(entry) = result {
-                let nombre = entry.file_name().to_string_lossy();
-                
-                // Aplicamos el filtro de búsqueda
-                if nombre.contains(&patron) {
-                    let info = FileDTO {
-                        name: nombre.to_string(),
-                        path: entry.path().to_path_buf(),
-                    };
-                    tx.send(info).unwrap();
+        let buscador = WalkBuilder::new("C:\\Users\\kenay\\OneDrive\\Desktop")
+            .threads(2) // evita saturar todos los nucleos
+            .build_parallel();
+
+        buscador.run(|| {
+            let tx = tx.clone();
+            let pattern = pattern.clone();
+
+            Box::new(move |result| {
+                if let Ok(entry) = result {
+                    let nombre = entry.file_name().to_string_lossy();
+
+                    if nombre.contains(&pattern) {
+                        let info = FileDTO {
+                            name: nombre.to_string(),
+                            path: entry.path().to_path_buf(),
+                        };
+
+                        let _ = tx.send(info);
+                    }
                 }
-            }
-            ignore::WalkState::Continue
-        })
-    });
 
-    drop(tx); // Cerramos el transmisor original para que el receptor sepa que terminamos
-    rx.into_iter().collect() // Convertimos los mensajes recibidos en un Vec
+                ignore::WalkState::Continue
+            })
+        });
+
+        drop(tx);
+        rx.into_iter().collect::<Vec<FileDTO>>()
+    })
+    .await
+    .map_err(|err| err.to_string())
 }
+
 
         
     

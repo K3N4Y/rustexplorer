@@ -4,7 +4,7 @@ import "./App.css";
 function App() {
   
   async function getFile() {
-    const files = await invoke("buscar_con_ignore", { patron: ".rs" });
+    const files = await invoke("search_with_ignore", { pattern: ".rs" });
     console.log(files);
   }
 
