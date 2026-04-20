@@ -1,7 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod models;
 
-use crate::models::file_dto::FileDTO;
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
@@ -17,11 +16,11 @@ pub fn run() {
 }
 
 #[tauri::command]
-async fn search_with_ignore(pattern: String) -> Result<Vec<FileDTO>, String> {
+async fn search_with_ignore(pattern: String, path: String) -> Result<Vec<FileDetailDTO>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let (tx, rx) = mpsc::channel();
 
-        let buscador = WalkBuilder::new("C:\\Users\\kenay\\OneDrive\\Desktop")
+        let buscador = WalkBuilder::new(&path)
             .threads(8) // evita saturar todos los nucleos
             .build_parallel();
 
@@ -33,13 +32,26 @@ async fn search_with_ignore(pattern: String) -> Result<Vec<FileDTO>, String> {
                 if let Ok(entry) = result {
                     let nombre = entry.file_name().to_string_lossy();
 
-                    if nombre.contains(&pattern) {
-                        let info = FileDTO {
-                            name: nombre.to_string(),
-                            path: entry.path().to_path_buf(),
-                        };
+                    if nombre.to_lowercase().contains(&pattern.to_lowercase()) {
+                        if let Ok(metadata) = entry.metadata() {
+                            let modified = metadata
+                                .modified()
+                                .ok()
+                                .map(|time| {
+                                    let datetime: DateTime<Utc> = time.into();
+                                    datetime.to_rfc3339()
+                                });
 
-                        let _ = tx.send(info);
+                            let info = FileDetailDTO {
+                                name: nombre.to_string(),
+                                path: entry.path().to_path_buf(),
+                                size: metadata.len(),
+                                modified,
+                                is_dir: metadata.is_dir(),
+                            };
+
+                            let _ = tx.send(info);
+                        }
                     }
                 }
 
@@ -48,7 +60,7 @@ async fn search_with_ignore(pattern: String) -> Result<Vec<FileDTO>, String> {
         });
 
         drop(tx);
-        rx.into_iter().collect::<Vec<FileDTO>>()
+        rx.into_iter().collect::<Vec<FileDetailDTO>>()
     })
     .await
     .map_err(|err| err.to_string())

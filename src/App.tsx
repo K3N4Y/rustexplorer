@@ -62,7 +62,10 @@ function App() {
             <h1 className="font-semibold text-sm">File Explorer</h1>
           </div>
           <div className="w-1/3 min-w-[200px] max-w-sm">
-            <InputGroupDemo />
+            <InputGroupDemo 
+              currentPath={currentPath}
+              onSearchResults={(results) => setFiles(results)}
+            />
           </div>
         </header>
         <main className="w-full flex-1 overflow-auto px-4 py-4">
