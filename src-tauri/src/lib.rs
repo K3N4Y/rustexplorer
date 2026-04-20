@@ -79,6 +79,7 @@ fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
             path: entry.path(),
             size: metadata.len(),
             modified,
+            is_dir: metadata.is_dir(),
         });
     }
 
