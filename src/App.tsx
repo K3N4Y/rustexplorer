@@ -1,12 +1,8 @@
+import { InputGroupDemo } from "./components/SearchBar";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
-  
-  async function getFile() {
-    const files = await invoke("search_with_ignore", { pattern: ".rs" });
-    console.log(files);
-  }
 
   async function getFiles() {
     const files = await invoke("get_files", { path: "C:\\Users\\kenay\\OneDrive\\Desktop" });
@@ -17,9 +13,9 @@ function App() {
   return (
     <main className="container">
       <div>
-        <button onClick={getFile}>Get File</button>
         <button onClick={getFiles}>Get Files</button>
       </div>
+      <InputGroupDemo />
     </main>
   );
 }
