@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct FileDetailDTO {
     pub name: String,
     pub path: PathBuf,

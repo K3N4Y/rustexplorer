@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Settings as SettingsIcon, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useSettings } from "../lib/settings-provider";

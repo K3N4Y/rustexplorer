@@ -4,7 +4,23 @@ mod models;
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
-use std::{fs, path::Path, sync::mpsc};
+use serde::Serialize;
+use std::{fs, path::Path, sync::mpsc, thread};
+use tauri::{Emitter, Window};
+
+const EVENT_BATCH_SIZE: usize = 64;
+
+#[derive(Serialize, Clone)]
+struct SearchResultChunkEvent {
+    request_id: String,
+    items: Vec<FileDetailDTO>,
+}
+
+#[derive(Serialize, Clone)]
+struct SearchDoneEvent {
+    request_id: String,
+    total: usize,
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -20,26 +36,63 @@ async fn search_with_ignore(
     pattern: String,
     path: String,
     threads: usize,
-) -> Result<Vec<FileDetailDTO>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let (tx, rx) = mpsc::channel();
-
+    request_id: String,
+    window: Window,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         // Keep a safe lower/upper bound to avoid invalid or excessive thread counts.
         let thread_count = threads.clamp(1, 32);
+        let search_pattern = pattern.to_lowercase();
+        let (tx, rx) = mpsc::channel::<FileDetailDTO>();
+
+        let emitter_window = window.clone();
+        let emitter_request_id = request_id.clone();
+        let emitter_handle = thread::spawn(move || {
+            let mut total_found = 0usize;
+            let mut buffer = Vec::with_capacity(EVENT_BATCH_SIZE);
+
+            for item in rx {
+                total_found += 1;
+                buffer.push(item);
+
+                if buffer.len() >= EVENT_BATCH_SIZE {
+                    let chunk = std::mem::take(&mut buffer);
+                    let _ = emitter_window.emit(
+                        "search-results-chunk",
+                        SearchResultChunkEvent {
+                            request_id: emitter_request_id.clone(),
+                            items: chunk,
+                        },
+                    );
+                }
+            }
+
+            if !buffer.is_empty() {
+                let _ = emitter_window.emit(
+                    "search-results-chunk",
+                    SearchResultChunkEvent {
+                        request_id: emitter_request_id,
+                        items: buffer,
+                    },
+                );
+            }
+
+            total_found
+        });
 
         let buscador = WalkBuilder::new(&path)
             .threads(thread_count)
             .build_parallel();
 
         buscador.run(|| {
+            let search_pattern = search_pattern.clone();
             let tx = tx.clone();
-            let pattern = pattern.clone();
 
             Box::new(move |result| {
                 if let Ok(entry) = result {
                     let nombre = entry.file_name().to_string_lossy();
 
-                    if nombre.to_lowercase().contains(&pattern.to_lowercase()) {
+                    if nombre.to_lowercase().contains(&search_pattern) {
                         if let Ok(metadata) = entry.metadata() {
                             let modified = metadata
                                 .modified()
@@ -67,10 +120,25 @@ async fn search_with_ignore(
         });
 
         drop(tx);
-        rx.into_iter().collect::<Vec<FileDetailDTO>>()
+
+        let total_found = emitter_handle
+            .join()
+            .map_err(|_| "search emitter thread failed".to_string())?;
+
+        let _ = window.emit(
+            "search-done",
+            SearchDoneEvent {
+                request_id,
+                total: total_found,
+            },
+        );
+
+        Ok(())
     })
     .await
-    .map_err(|err| err.to_string())
+    .map_err(|err| err.to_string())??;
+
+    Ok(())
 }
 
 #[tauri::command]
