@@ -6,7 +6,7 @@ import FileExplorer from "./components/FileExplorer";
 import FileTreeSidebar from "./components/FileTreeSidebar";
 import type { FileItem } from "./components/file-types";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
-import { ModeToggle } from "./components/mode-toggle";
+import { SettingsDialog } from "./components/settings-dialog";
 
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
@@ -67,7 +67,7 @@ function App() {
               currentPath={currentPath}
               onSearchResults={(results) => setFiles(results)}
             />
-            <ModeToggle />
+            <SettingsDialog />
           </div>
         </header>
         <main className="w-full flex-1 overflow-auto px-4 py-4">

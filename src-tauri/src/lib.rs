@@ -16,12 +16,19 @@ pub fn run() {
 }
 
 #[tauri::command]
-async fn search_with_ignore(pattern: String, path: String) -> Result<Vec<FileDetailDTO>, String> {
+async fn search_with_ignore(
+    pattern: String,
+    path: String,
+    threads: usize,
+) -> Result<Vec<FileDetailDTO>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let (tx, rx) = mpsc::channel();
 
+        // Keep a safe lower/upper bound to avoid invalid or excessive thread counts.
+        let thread_count = threads.clamp(1, 32);
+
         let buscador = WalkBuilder::new(&path)
-            .threads(8) // evita saturar todos los nucleos
+            .threads(thread_count)
             .build_parallel();
 
         buscador.run(|| {

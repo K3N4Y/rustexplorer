@@ -2,6 +2,7 @@ import { Search } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core";
 import { useState, KeyboardEvent } from "react";
 import type { FileItem } from "./file-types";
+import { useSettings } from "../lib/settings-provider";
 
 import {
   InputGroup,
@@ -17,6 +18,7 @@ interface InputGroupDemoProps {
 export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoProps) {
   const [search, setSearch] = useState("");
   const [resultsCount, setResultsCount] = useState(0);
+  const { searchThreads } = useSettings();
 
   async function performSearch(searchQuery: string) {
     if (!searchQuery.trim()) {
@@ -33,7 +35,7 @@ export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoP
         size: number;
         modified: string | null;
         is_dir: boolean;
-      }>>("search_with_ignore", { pattern: searchQuery, path: currentPath });
+      }>>("search_with_ignore", { pattern: searchQuery, path: currentPath, threads: searchThreads });
       
       const files: FileItem[] = results.map((item) => ({
         name: item.name,

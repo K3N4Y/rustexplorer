@@ -3,6 +3,8 @@ import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
 
+import { useSettings } from '../lib/settings-provider';
+
 // Props del componente
 interface FileExplorerProps {
   initialFiles: FileItem[];
@@ -21,8 +23,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const files = initialFiles;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   
+  const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 30;
 
   React.useEffect(() => {
     setCurrentPage(1);
