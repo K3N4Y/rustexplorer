@@ -93,11 +93,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="w-full mx-auto border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+    <div className="w-full mx-auto border border-border rounded-lg overflow-hidden bg-card text-card-foreground shadow-sm">
       <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
       {/* Header */}
-      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-gray-50 text-sm font-semibold text-gray-600 border-b border-gray-200">
+      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-muted/50 text-sm font-semibold text-muted-foreground border-b border-border">
         <span>Name</span>
         <span>Modified</span>
         <span>Type</span>
@@ -110,8 +110,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         return (
           <div
             key={index}
-            className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-gray-100 items-center cursor-pointer transition-colors duration-150 ${
-              hoveredIndex === index ? 'bg-gray-50' : 'bg-white'
+            className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
+              hoveredIndex === index ? 'bg-muted/50' : 'bg-transparent'
             }`}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
@@ -122,34 +122,34 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               {folder ? (
                 <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
               ) : (
-                <FileIcon className="h-5 w-5 text-slate-500" strokeWidth={1.8} aria-hidden="true" />
+                <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
               )}
-              <span className="truncate text-sm text-gray-800">{file.name}</span>
+              <span className="truncate text-sm font-medium">{file.name}</span>
             </div>
 
             {/* Modified */}
-            <span className="text-sm text-gray-600">{formatDate(file.modified)}</span>
+            <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
 
             {/* Type Badge */}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
               {folder ? 'Directory' : 'File'}
             </span>
 
             {/* Size */}
-            <span className="text-sm text-gray-600">{formatSize(file.size, folder)}</span>
+            <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
           </div>
         );
       })}
 
       {/* Back Button (if not at root) */}
       {currentPath !== '/' && (
-        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="px-4 py-3 border-t border-border bg-muted/20">
           <button
             onClick={async () => {
               const parentPath = getParentPath(currentPath);
               await navigateToPath(parentPath);
             }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-background border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             ← Back
           </button>
@@ -158,25 +158,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-between">
-          <span className="text-sm text-gray-600">
+        <div className="px-4 py-3 border-t border-border bg-card flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
           </span>
           <div className="flex items-center gap-4 text-sm">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
-            <span className="text-gray-700 font-medium">
+            <span className="text-foreground font-medium">
               Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

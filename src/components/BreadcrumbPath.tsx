@@ -55,15 +55,15 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
   const items = React.useMemo(() => buildBreadcrumbItems(currentPath), [currentPath]);
 
   return (
-    <nav className="px-4 py-3 border-b border-gray-200 bg-white" aria-label="Breadcrumb">
-      <ol className="flex items-center gap-1 text-sm text-gray-600 overflow-x-auto whitespace-nowrap">
+    <nav className="px-4 py-3 border-b border-border bg-transparent" aria-label="Breadcrumb">
+      <ol className="flex items-center gap-1 text-sm text-muted-foreground overflow-x-auto whitespace-nowrap">
         <li>
           <button
             type="button"
             onClick={() => {
               void onNavigate(items[0].path);
             }}
-            className="inline-flex items-center rounded-md px-2 py-1 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="inline-flex items-center rounded-md px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
             title={items[0].path}
           >
             <House className="h-4 w-4" aria-hidden="true" />
@@ -75,7 +75,7 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
 
           return (
             <li key={item.path} className="inline-flex items-center gap-1">
-              <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50" aria-hidden="true" />
               <button
                 type="button"
                 onClick={() => {
@@ -84,8 +84,8 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
                 disabled={isLast}
                 className={`rounded-md px-2 py-1 transition-colors ${
                   isLast
-                    ? 'text-gray-900 font-medium cursor-default'
-                    : 'hover:bg-gray-100 hover:text-gray-900'
+                    ? 'text-foreground font-medium cursor-default'
+                    : 'hover:bg-accent hover:text-accent-foreground'
                 }`}
                 title={item.path}
               >

@@ -6,6 +6,7 @@ import FileExplorer from "./components/FileExplorer";
 import FileTreeSidebar from "./components/FileTreeSidebar";
 import type { FileItem } from "./components/file-types";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
+import { ModeToggle } from "./components/mode-toggle";
 
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
@@ -61,11 +62,12 @@ function App() {
             <SidebarTrigger />
             <h1 className="font-semibold text-sm">File Explorer</h1>
           </div>
-          <div className="w-1/3 min-w-[200px] max-w-sm">
+          <div className="flex w-1/3 min-w-[200px] max-w-sm items-center gap-4">
             <InputGroupDemo 
               currentPath={currentPath}
               onSearchResults={(results) => setFiles(results)}
             />
+            <ModeToggle />
           </div>
         </header>
         <main className="w-full flex-1 overflow-auto px-4 py-4">
