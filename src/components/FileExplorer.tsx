@@ -204,10 +204,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="w-full mx-auto border border-border rounded-lg overflow-hidden bg-card text-card-foreground shadow-sm">
+    <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5">
       <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
-      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-muted/50 text-sm font-semibold text-muted-foreground border-b border-border">
+      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] border-b border-border/50 bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78">
         <span>Name</span>
         <span>Modified</span>
         <span>Type</span>
@@ -215,25 +215,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       </div>
 
       {isLoading && (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <LoaderCircle className="h-7 w-7 animate-spin text-muted-foreground" aria-hidden="true" />
+        <div className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-12 text-center bg-card/50">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm border border-primary/20">
+            <LoaderCircle className="h-6 w-6 animate-spin" strokeWidth={2.5} aria-hidden="true" />
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Cargando carpeta...</p>
-            <p className="text-sm text-muted-foreground">Estamos obteniendo los archivos de esta ruta.</p>
+          <div className="space-y-1.5">
+            <p className="text-base font-semibold tracking-tight text-foreground">Cargando carpeta...</p>
+            <p className="text-[13px] text-muted-foreground/80">Estamos obteniendo los archivos de esta ruta.</p>
           </div>
         </div>
       )}
 
       {errorMessage && !isLoading && (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-            <AlertCircle className="h-7 w-7" aria-hidden="true" />
+        <div className="flex min-h-72 flex-col items-center justify-center gap-5 px-6 py-12 text-center bg-card/50">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive shadow-sm border border-destructive/20">
+            <AlertCircle className="h-6 w-6" strokeWidth={2.5} aria-hidden="true" />
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Ocurrió un problema</p>
-            <p className="text-sm text-muted-foreground">{errorMessage}</p>
+          <div className="space-y-1.5">
+            <p className="text-[15px] font-semibold text-foreground tracking-tight">Ocurrió un problema</p>
+            <p className="text-[13px] text-muted-foreground/80">{errorMessage}</p>
           </div>
           {onRetry && (
             <button
@@ -241,9 +241,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               onClick={() => {
                 void onRetry();
               }}
-              className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2.5 text-[13px] font-semibold tracking-wide shadow-sm transition-all hover:bg-accent hover:text-accent-foreground active:scale-95"
             >
-              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+              <RefreshCcw className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
               Reintentar
             </button>
           )}
@@ -251,13 +251,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
 
       {isEmpty && (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <FolderOpen className="h-7 w-7" aria-hidden="true" />
+        <div className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-12 text-center bg-card/50">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground/70 shadow-sm border border-border/50">
+            <FolderOpen className="h-6 w-6" strokeWidth={2.5} aria-hidden="true" />
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Esta carpeta está vacía</p>
-            <p className="text-sm text-muted-foreground">Cuando tenga archivos o subcarpetas, aparecerán aquí.</p>
+          <div className="space-y-1.5">
+            <p className="text-[15px] font-semibold text-foreground tracking-tight">Esta carpeta está vacía</p>
+            <p className="text-[13px] text-muted-foreground/80">Cuando tenga archivos o subcarpetas, aparecerán aquí.</p>
           </div>
         </div>
       )}
@@ -280,11 +280,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             }}
           >
             <div
-              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-all duration-150 ${
+              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
                 isSelected
-                  ? 'bg-accent/80 text-accent-foreground shadow-[inset_3px_0_0_0_theme(colors.foreground)]'
+                  ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
                   : isHovered
-                    ? 'bg-muted/50'
+                    ? 'bg-muted/40'
                     : 'bg-transparent'
               }`}
               onMouseEnter={() => setHoveredIndex(index)}
@@ -294,32 +294,42 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 void handleItemClick(file);
               }}
             >
-              <div className="flex items-center gap-2 truncate">
+              <div className="flex items-center gap-3 truncate">
                 {folder ? (
-                  <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
+                  <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-amber-500 shadow-sm border border-amber-500/20">
+                    <FolderIcon className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                  </div>
                 ) : (
-                  <FileIcon
-                    className={`h-5 w-5 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
-                    strokeWidth={1.8}
-                    aria-hidden="true"
-                  />
+                  <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-500/10 text-zinc-500 shadow-sm border border-zinc-500/20">
+                    <FileIcon
+                      className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                  </div>
                 )}
-                <span className={`truncate text-sm ${isSelected ? 'font-semibold' : 'font-medium'}`}>{file.name}</span>
+                <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
               </div>
 
-              <span className={`text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`text-[13px] ${isSelected ? 'font-medium text-foreground/90' : 'text-muted-foreground'} tracking-tight`}>
                 {formatDate(file.modified)}
               </span>
 
               <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  isSelected ? 'bg-foreground/10 text-foreground' : 'bg-secondary text-secondary-foreground'
+                className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-sm ${
+                  folder 
+                    ? isSelected 
+                      ? 'bg-amber-100/50 border-amber-200 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/30 dark:text-amber-200' 
+                      : 'bg-amber-50 border-amber-100/50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
+                    : isSelected 
+                      ? 'bg-zinc-100 border-zinc-200 text-zinc-800 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-200'
+                      : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
                 }`}
               >
-                {folder ? 'Directory' : 'File'}
+                {folder ? 'DIRECTORY' : 'FILE'}
               </span>
 
-              <span className={`text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
                 {formatSize(file.size, folder)}
               </span>
             </div>
@@ -343,24 +353,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {totalPages > 1 && !isLoading && !errorMessage && (
         <div className="px-4 py-3 border-t border-border bg-card flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[12px] font-medium tracking-tight text-muted-foreground">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
           </span>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-[13px]">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="rounded-md bg-secondary px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
-            <span className="text-foreground font-medium">
+            <span className="font-semibold tracking-tight text-foreground">
               Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="rounded-md bg-secondary px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

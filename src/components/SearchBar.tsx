@@ -205,10 +205,13 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
       </InputGroupAddon>
       <InputGroupInput
         placeholder="Buscar en esta carpeta..."
+        className="text-sm font-medium placeholder:text-muted-foreground/70"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <InputGroupAddon align="inline-end">{isSearching ? "..." : `${resultsCount}`}</InputGroupAddon>
+      <InputGroupAddon align="inline-end" className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+        {isSearching ? "..." : `${resultsCount}`}
+      </InputGroupAddon>
       {search && (
         <InputGroupAddon align="inline-end">
           <InputGroupButton

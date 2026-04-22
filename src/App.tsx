@@ -160,7 +160,7 @@ function App() {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-3">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-4 py-3.5">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
             <div className="flex items-center gap-2">
@@ -211,12 +211,17 @@ function App() {
                 </Button>
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-sky-600" />
-                  <h1 className="truncate font-semibold text-sm">{getPathLabel(currentPath)}</h1>
+                  <FolderOpen className="h-4 w-4 text-foreground/65" />
+                  <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
+                    {getPathLabel(currentPath)}
+                  </h1>
                 </div>
-                <p className="truncate text-xs text-muted-foreground" title={currentPath}>
+                <p
+                  className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80"
+                  title={currentPath}
+                >
                   {currentPath}
                 </p>
               </div>
