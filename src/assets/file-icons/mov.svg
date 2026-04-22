@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#e11d48"/>
+  <rect x="12" y="18" width="30" height="28" rx="6" fill="#ffe4e6"/>
+  <path d="M42 25l10-5v24l-10-5V25Z" fill="#fb7185"/>
+  <text x="16" y="56" font-size="11" font-family="Arial, sans-serif" font-weight="700" fill="#ffe4e6">MOV</text>
+</svg>

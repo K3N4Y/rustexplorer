@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M18 8h20l12 12v30c0 3.3-2.7 6-6 6H18c-3.3 0-6-2.7-6-6V14c0-3.3 2.7-6 6-6Z" fill="#15803d"/>
+  <path d="M38 8v12h12" fill="#bbf7d0"/>
+  <text x="14" y="40" font-size="13" font-family="Arial, sans-serif" font-weight="700" fill="#f0fdf4">XLSX</text>
+</svg>
