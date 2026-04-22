@@ -18,6 +18,8 @@ import { FileContextMenu } from './FileContextMenu';
 import { RenameDialog } from './RenameDialog';
 import { DeleteAlertDialog } from './DeleteAlertDialog';
 
+import { getFileAppearance } from '../lib/file-appearance';
+import { getParentPath } from '../lib/path-utils';
 import { useSettings } from '../lib/settings-provider';
 
 interface FileExplorerProps {
@@ -244,26 +246,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  const getParentPath = (path: string): string => {
-    const normalized = path.replace(/[\\/]+$/, '');
-    const parts = normalized.split(/[\\/]+/);
-
-    if (parts.length <= 1) {
-      return '/';
-    }
-
-    const lastSegment = parts.pop();
-    if (!lastSegment) {
-      return '/';
-    }
-
-    if (parts.length === 1 && parts[0].endsWith(':')) {
-      return `${parts[0]}\\`;
-    }
-
-    return parts.join('\\') || '/';
-  };
-
   const handleSort = (option: SortOption) => {
     if (isSearchActive) {
       return;
@@ -286,6 +268,53 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const sortHeaderClassName = isSearchActive
     ? 'flex items-center text-muted-foreground/55'
     : 'cursor-pointer hover:text-foreground flex items-center';
+
+  const renderFileIcon = (file: FileItem, selected: boolean, size: 'sm' | 'lg') => {
+    const appearance = getFileAppearance(file);
+    const dimensionClassName = size === 'sm' ? 'h-7 w-7 rounded-md' : 'h-14 w-14 rounded-xl';
+    const iconSizeClassName = size === 'sm' ? 'h-4 w-4' : 'h-7 w-7';
+
+    if (file.isDirectory) {
+      return (
+        <div
+          className={`relative flex items-center justify-center border shadow-sm ${dimensionClassName} ${
+            selected
+              ? 'bg-amber-500/20 text-amber-600 border-amber-500/30 ring-2 ring-amber-500/20 ring-offset-1 ring-offset-background dark:text-amber-400'
+              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+          }`}
+        >
+          <FolderIcon
+            className={size === 'sm' ? 'h-4 w-4' : 'h-7 w-7'}
+            strokeWidth={2.2}
+            aria-hidden="true"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`relative flex items-center justify-center border shadow-sm ${dimensionClassName} ${appearance.containerClassName} ${
+          selected ? 'ring-2 ring-primary/20 ring-offset-1 ring-offset-background' : ''
+        }`}
+      >
+        {appearance.iconSrc ? (
+          <img
+            src={appearance.iconSrc}
+            alt=""
+            className={size === 'sm' ? 'h-5 w-5' : 'h-10 w-10'}
+            draggable={false}
+          />
+        ) : (
+          <FileIcon
+            className={`${iconSizeClassName} ${selected ? 'text-primary' : 'text-muted-foreground'}`}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative">
@@ -386,6 +415,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               const folder = isFolder(file);
               const isSelected = selectedIndex === index;
               const isHovered = hoveredIndex === index;
+              const appearance = getFileAppearance(file);
 
               return (
                 <FileContextMenu
@@ -419,19 +449,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                     }}
                   >
                     <div className="flex items-center gap-3 truncate">
-                      {folder ? (
-                        <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-amber-500 shadow-sm border border-amber-500/20">
-                          <FolderIcon className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-                        </div>
-                      ) : (
-                        <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-500/10 text-zinc-500 shadow-sm border border-zinc-500/20">
-                          <FileIcon
-                            className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
-                            strokeWidth={2}
-                            aria-hidden="true"
-                          />
-                        </div>
-                      )}
+                      {renderFileIcon(file, isSelected, 'sm')}
                       <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
                     </div>
 
@@ -450,7 +468,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                             : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
                       }`}
                     >
-                      {folder ? 'DIRECTORY' : 'FILE'}
+                      {folder ? 'DIRECTORY' : appearance.chipLabel}
                     </span>
 
                     <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
@@ -467,6 +485,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               const folder = isFolder(file);
               const isSelected = selectedIndex === index;
               const isHovered = hoveredIndex === index;
+              const appearance = getFileAppearance(file);
 
               return (
                 <FileContextMenu
@@ -500,15 +519,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                     }}
                   >
                     <div className="mb-3.5 relative">
-                      {folder ? (
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm transition-all ${isSelected ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 ring-2 ring-amber-500/20 ring-offset-1 ring-offset-background' : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/15 border border-amber-500/20'}`}>
-                          <FolderIcon className="h-7 w-7" strokeWidth={2.2} aria-hidden="true" />
-                        </div>
-                      ) : (
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm transition-all ${isSelected ? 'bg-primary/20 text-primary border border-primary/30 ring-2 ring-primary/20 ring-offset-1 ring-offset-background' : 'bg-zinc-500/10 text-zinc-500 hover:bg-zinc-500/15 border border-zinc-500/20'}`}>
-                          <FileIcon className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
-                        </div>
-                      )}
+                      {renderFileIcon(file, isSelected, 'lg')}
                     </div>
                     <span 
                       className={`text-[12.5px] text-center w-full break-words line-clamp-2 px-1 leading-snug transition-colors ${
@@ -518,6 +529,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                     >
                       {file.name}
                     </span>
+                    {!folder && (
+                      <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {appearance.chipLabel}
+                      </span>
+                    )}
                   </div>
                 </FileContextMenu>
               );

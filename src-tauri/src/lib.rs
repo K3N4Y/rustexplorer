@@ -5,7 +5,12 @@ use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
 use serde::Serialize;
-use std::{fs, path::Path, sync::mpsc, thread};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::mpsc,
+    thread,
+};
 use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
@@ -99,21 +104,11 @@ async fn search_with_ignore(
 
                     if nombre.to_lowercase().contains(&search_pattern) {
                         if let Ok(metadata) = entry.metadata() {
-                            let modified = metadata
-                                .modified()
-                                .ok()
-                                .map(|time| {
-                                    let datetime: DateTime<Utc> = time.into();
-                                    datetime.to_rfc3339()
-                                });
-
-                            let info = FileDetailDTO {
-                                name: nombre.to_string(),
-                                path: entry.path().to_path_buf(),
-                                size: metadata.len(),
-                                modified,
-                                is_dir: metadata.is_dir(),
-                            };
+                            let info = file_detail_from_parts(
+                                nombre.to_string(),
+                                entry.path().to_path_buf(),
+                                &metadata,
+                            );
 
                             let _ = tx.send(info);
                         }
@@ -191,30 +186,64 @@ fn delete_file(target_path: String) -> Result<(), String> {
     }
 }
 
+fn file_detail_from_parts(name: String, path: PathBuf, metadata: &fs::Metadata) -> FileDetailDTO {
+    let modified = metadata
+        .modified()
+        .ok()
+        .map(|time| {
+            let datetime: DateTime<Utc> = time.into();
+            datetime.to_rfc3339()
+        });
+
+    FileDetailDTO {
+        name,
+        path,
+        size: metadata.len(),
+        modified,
+        is_dir: metadata.is_dir(),
+    }
+}
+
 fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
     let mut files = Vec::new();
 
     for entry in fs::read_dir(path)? {
         let entry = entry?;
         let metadata = entry.metadata()?;
-        
-        let modified = metadata
-            .modified()
-            .ok()
-            .map(|time| {
-                let datetime: DateTime<Utc> = time.into();
-                datetime.to_rfc3339()
-            });
 
-        files.push(FileDetailDTO {
-            name: entry.file_name().to_string_lossy().to_string(),
-            path: entry.path(),
-            size: metadata.len(),
-            modified,
-            is_dir: metadata.is_dir(),
-        });
+        files.push(file_detail_from_parts(
+            entry.file_name().to_string_lossy().to_string(),
+            entry.path(),
+            &metadata,
+        ));
     }
 
     files.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_detail_from_parts_maps_metadata_into_dto() {
+        let temp_dir = std::env::temp_dir().join(format!("rustexplorer-test-{}", std::process::id()));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let file_path = temp_dir.join("sample.txt");
+        fs::write(&file_path, b"hello").unwrap();
+
+        let metadata = fs::metadata(&file_path).unwrap();
+        let detail = file_detail_from_parts("sample.txt".to_string(), file_path.clone(), &metadata);
+
+        assert_eq!(detail.name, "sample.txt");
+        assert_eq!(detail.path, file_path);
+        assert_eq!(detail.size, 5);
+        assert!(!detail.is_dir);
+        assert!(detail.modified.is_some());
+
+        fs::remove_file(&detail.path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
 }

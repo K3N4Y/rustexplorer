@@ -14,7 +14,7 @@ const defaultSettings: Settings = {
   searchThreads: 4,
 };
 
-export const SettingsContext = createContext<SettingsContextType>({
+const SettingsContext = createContext<SettingsContextType>({
   ...defaultSettings,
   updateSettings: () => {},
 });

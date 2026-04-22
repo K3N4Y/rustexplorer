@@ -29,7 +29,6 @@ export function SettingsDialog() {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/60 px-4 py-4 backdrop-blur-md transition-all duration-300 animate-in fade-in zoom-in-95">
           <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-border/40 bg-background/90 text-foreground shadow-2xl shadow-black/10 ring-1 ring-foreground/5 backdrop-blur-2xl">
-            {/* Encabezado */}
             <div className="flex items-center justify-between border-b border-border/40 px-8 py-6 bg-gradient-to-b from-muted/20 to-transparent">
               <div className="space-y-1">
                 <h2 className="text-2xl font-semibold tracking-tight text-foreground">Configuración</h2>
@@ -49,10 +48,8 @@ export function SettingsDialog() {
               </Button>
             </div>
 
-            {/* Contenido scrolleable */}
             <div className="space-y-8 overflow-y-auto px-8 py-8 h-full max-h-[60vh] scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-              
-              {/* Sección: Tema */}
+
               <section className="space-y-4">
                 <div className="space-y-1.5 flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
@@ -105,7 +102,6 @@ export function SettingsDialog() {
                 </div>
               </section>
 
-              {/* Sección: Exploración */}
               <section className="space-y-4">
                 <div className="space-y-1.5 flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
@@ -116,7 +112,6 @@ export function SettingsDialog() {
 
                 <div className="flex flex-col gap-3">
                   
-                  {/* Resultados por página */}
                   <div className="group flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-2xl border border-border/40 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/40">
                     <div className="space-y-1">
                       <label htmlFor="itemsPerPage" className="text-[15px] font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
@@ -148,7 +143,6 @@ export function SettingsDialog() {
                     </div>
                   </div>
 
-                  {/* Hilos de búsqueda */}
                   <div className="group flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-2xl border border-border/40 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/40">
                     <div className="space-y-1 flex-1">
                       <label htmlFor="searchThreads" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
@@ -186,7 +180,6 @@ export function SettingsDialog() {
 
             </div>
 
-            {/* Footer */}
             <div className="flex items-center justify-between border-t border-border/40 bg-background/50 px-8 py-5 backdrop-blur-md">
               <p className="text-[13px] font-semibold tracking-tight text-muted-foreground/70">
                 Los cambios se guardan instantáneamente
