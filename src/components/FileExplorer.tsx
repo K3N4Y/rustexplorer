@@ -38,6 +38,59 @@ interface FileExplorerProps {
 type SortOption = 'name' | 'modified' | 'type' | 'size';
 type SortOrder = 'asc' | 'desc';
 
+interface FileItemShellProps {
+  file: FileItem;
+  index: number;
+  className: string;
+  children: React.ReactNode;
+  onOpen: (item: FileItem) => Promise<void>;
+  onRename?: (item: FileItem) => void;
+  onDelete?: (item: FileItem) => void;
+  onSelect: (index: number) => void;
+  onHoverStart: (index: number) => void;
+  onHoverEnd: () => void;
+}
+
+const FileItemShell: React.FC<FileItemShellProps> = ({
+  file,
+  index,
+  className,
+  children,
+  onOpen,
+  onRename,
+  onDelete,
+  onSelect,
+  onHoverStart,
+  onHoverEnd,
+}) => (
+  <FileContextMenu
+    file={file}
+    onOpen={(item) => void onOpen(item)}
+    onRename={() => {
+      onRename?.(file);
+    }}
+    onDelete={() => {
+      onDelete?.(file);
+    }}
+  >
+    <div
+      className={className}
+      onMouseEnter={() => onHoverStart(index)}
+      onMouseLeave={onHoverEnd}
+      onContextMenu={() => onSelect(index)}
+      onClick={() => {
+        onSelect(index);
+      }}
+      onDoubleClick={() => {
+        onSelect(index);
+        void onOpen(file);
+      }}
+    >
+      {children}
+    </div>
+  </FileContextMenu>
+);
+
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
   initialPath = '/',
@@ -150,6 +203,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const openDeleteDialog = (file: FileItem) => {
     setFileToDelete(file);
     setDeleteDialogOpen(true);
+  };
+
+  const handleSelect = (index: number) => {
+    setSelectedIndex(index);
+  };
+
+  const handleHoverStart = (index: number) => {
+    setHoveredIndex(index);
+  };
+
+  const handleHoverEnd = () => {
+    setHoveredIndex(null);
   };
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
@@ -418,64 +483,51 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               const appearance = getFileAppearance(file);
 
               return (
-                <FileContextMenu
+                <FileItemShell
                   key={file.path}
                   file={file}
-                  onOpen={(item) => void openItem(item)}
-                  onRename={() => {
-                    if (onRenameItem) openRenameDialog(file);
-                  }}
-                  onDelete={() => {
-                    if (onDeleteItem) openDeleteDialog(file);
-                  }}
+                  index={index}
+                  onOpen={openItem}
+                  onRename={onRenameItem ? openRenameDialog : undefined}
+                  onDelete={onDeleteItem ? openDeleteDialog : undefined}
+                  onSelect={handleSelect}
+                  onHoverStart={handleHoverStart}
+                  onHoverEnd={handleHoverEnd}
+                  className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
+                    isSelected
+                      ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
+                      : isHovered
+                        ? 'bg-muted/40'
+                        : 'bg-transparent'
+                  }`}
                 >
-                  <div
-                    className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
-                      isSelected
-                        ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
-                        : isHovered
-                          ? 'bg-muted/40'
-                          : 'bg-transparent'
-                    }`}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                    onContextMenu={() => setSelectedIndex(index)}
-                    onClick={() => {
-                      setSelectedIndex(index);
-                    }}
-                    onDoubleClick={() => {
-                      setSelectedIndex(index);
-                      void openItem(file);
-                    }}
-                  >
-                    <div className="flex items-center gap-3 truncate">
-                      {renderFileIcon(file, isSelected, 'sm')}
-                      <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
-                    </div>
-
-                    <span className={`text-[13px] ${isSelected ? 'font-medium text-foreground/90' : 'text-muted-foreground'} tracking-tight`}>
-                      {formatDate(file.modified)}
-                    </span>
-
-                    <span
-                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-sm ${
-                        folder 
-                          ? isSelected 
-                            ? 'bg-amber-100/50 border-amber-200 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/30 dark:text-amber-200' 
-                            : 'bg-amber-50 border-amber-100/50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
-                          : isSelected 
-                            ? 'bg-zinc-100 border-zinc-200 text-zinc-800 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-200'
-                            : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
-                      }`}
-                    >
-                      {folder ? 'DIRECTORY' : appearance.chipLabel}
-                    </span>
-
-                    <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
-                      {formatSize(file.size, folder)}
-                    </span>
+                  <div className="flex items-center gap-3 truncate">
+                    {renderFileIcon(file, isSelected, 'sm')}
+                    <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
                   </div>
-                </FileContextMenu>
+
+                  <span className={`text-[13px] ${isSelected ? 'font-medium text-foreground/90' : 'text-muted-foreground'} tracking-tight`}>
+                    {formatDate(file.modified)}
+                  </span>
+
+                  <span
+                    className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-sm ${
+                      folder 
+                        ? isSelected 
+                          ? 'bg-amber-100/50 border-amber-200 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/30 dark:text-amber-200' 
+                          : 'bg-amber-50 border-amber-100/50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
+                        : isSelected 
+                          ? 'bg-zinc-100 border-zinc-200 text-zinc-800 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-200'
+                          : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
+                    }`}
+                  >
+                    {folder ? 'DIRECTORY' : appearance.chipLabel}
+                  </span>
+
+                  <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
+                    {formatSize(file.size, folder)}
+                  </span>
+                </FileItemShell>
               );
             })}
           </div>
@@ -488,54 +540,41 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               const appearance = getFileAppearance(file);
 
               return (
-                <FileContextMenu
+                <FileItemShell
                   key={file.path}
                   file={file}
-                  onOpen={(item) => void openItem(item)}
-                  onRename={() => {
-                    if (onRenameItem) openRenameDialog(file);
-                  }}
-                  onDelete={() => {
-                    if (onDeleteItem) openDeleteDialog(file);
-                  }}
+                  index={index}
+                  onOpen={openItem}
+                  onRename={onRenameItem ? openRenameDialog : undefined}
+                  onDelete={onDeleteItem ? openDeleteDialog : undefined}
+                  onSelect={handleSelect}
+                  onHoverStart={handleHoverStart}
+                  onHoverEnd={handleHoverEnd}
+                  className={`flex flex-col items-center justify-center p-4 rounded-[14px] border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary/10 border-primary/30 shadow-sm ring-1 ring-primary/20'
+                      : isHovered
+                        ? 'bg-muted/80 border-border/80'
+                        : 'bg-card border-transparent hover:border-border/50'
+                  }`}
                 >
-                  <div
-                    className={`flex flex-col items-center justify-center p-4 rounded-[14px] border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary/10 border-primary/30 shadow-sm ring-1 ring-primary/20'
-                        : isHovered
-                          ? 'bg-muted/80 border-border/80'
-                          : 'bg-card border-transparent hover:border-border/50'
-                    }`}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                    onContextMenu={() => setSelectedIndex(index)}
-                    onClick={() => {
-                      setSelectedIndex(index);
-                    }}
-                    onDoubleClick={() => {
-                      setSelectedIndex(index);
-                      void openItem(file);
-                    }}
-                  >
-                    <div className="mb-3.5 relative">
-                      {renderFileIcon(file, isSelected, 'lg')}
-                    </div>
-                    <span 
-                      className={`text-[12.5px] text-center w-full break-words line-clamp-2 px-1 leading-snug transition-colors ${
-                        isSelected ? 'font-semibold text-primary' : 'font-medium text-foreground/90'
-                      }`}
-                      title={file.name}
-                    >
-                      {file.name}
-                    </span>
-                    {!folder && (
-                      <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        {appearance.chipLabel}
-                      </span>
-                    )}
+                  <div className="mb-3.5 relative">
+                    {renderFileIcon(file, isSelected, 'lg')}
                   </div>
-                </FileContextMenu>
+                  <span 
+                    className={`text-[12.5px] text-center w-full break-words line-clamp-2 px-1 leading-snug transition-colors ${
+                      isSelected ? 'font-semibold text-primary' : 'font-medium text-foreground/90'
+                    }`}
+                    title={file.name}
+                  >
+                    {file.name}
+                  </span>
+                  {!folder && (
+                    <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {appearance.chipLabel}
+                    </span>
+                  )}
+                </FileItemShell>
               );
             })}
           </div>
