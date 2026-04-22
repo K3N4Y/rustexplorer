@@ -255,22 +255,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5">
-      <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
+    <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative">
+      <div className="sticky top-0 z-10 bg-card border-b border-border/50">
+        <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
-      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] border-b border-border/50 bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
-        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('name')}>
-          Name <SortIcon option="name" />
-        </span>
-        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('modified')}>
-          Modified <SortIcon option="modified" />
-        </span>
-        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('type')}>
-          Type <SortIcon option="type" />
-        </span>
-        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('size')}>
-          Size <SortIcon option="size" />
-        </span>
+        <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
+          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('name')}>
+            Name <SortIcon option="name" />
+          </span>
+          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('modified')}>
+            Modified <SortIcon option="modified" />
+          </span>
+          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('type')}>
+            Type <SortIcon option="type" />
+          </span>
+          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('size')}>
+            Size <SortIcon option="size" />
+          </span>
+        </div>
       </div>
 
       {isLoading && (
@@ -397,7 +399,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       })}
 
       {currentPath !== '/' && !isLoading && !errorMessage && !isEmpty && (
-        <div className="px-4 py-3 border-t border-border bg-muted/20">
+        <div className="px-4 py-3 border-t border-border bg-muted/20 sticky bottom-0 z-10 hidden">
           <button
             onClick={async () => {
               const parentPath = getParentPath(currentPath);
@@ -411,7 +413,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
 
       {totalPages > 1 && !isLoading && !errorMessage && (
-        <div className="px-4 py-3 border-t border-border bg-card flex items-center justify-between">
+        <div className="px-4 py-3 border-t border-border/50 bg-card flex items-center justify-between sticky bottom-0 z-10">
           <span className="text-[12px] font-medium tracking-tight text-muted-foreground">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
           </span>

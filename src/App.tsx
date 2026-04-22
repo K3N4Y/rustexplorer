@@ -159,8 +159,8 @@ function App() {
         />
       </Sidebar>
 
-      <SidebarInset>
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-4 py-3.5">
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-4 py-3.5 sticky top-0 z-20">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
             <div className="flex items-center gap-2">
@@ -237,8 +237,8 @@ function App() {
             <SettingsDialog />
           </div>
         </header>
-        <main className="w-full flex-1 overflow-auto px-4 py-4">
-          <div className="mx-auto w-full max-w-none">
+        <main className="w-full flex-1 overflow-auto bg-background">
+          <div className="mx-auto w-full p-4 max-w-none">
             <FileExplorer
               initialFiles={files}
               initialPath={currentPath}
