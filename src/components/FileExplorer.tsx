@@ -9,6 +9,16 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 import { useSettings } from '../lib/settings-provider';
 
@@ -32,6 +42,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const files = initialFiles;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
+  const [newFileName, setNewFileName] = useState('');
   
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,7 +73,32 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     if (isFolder(item)) {
       await navigateToPath(item.path);
     }
-    // Si es archivo, no hacemos nada (podrías agregar onClick para abrirlo)
+  };
+
+  const openRenameDialog = (file: FileItem) => {
+    setFileToRename(file);
+    setNewFileName(file.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fileToRename || !newFileName.trim()) return;
+
+    if (newFileName.trim() === fileToRename.name) {
+      setRenameDialogOpen(false);
+      return;
+    }
+
+    try {
+      if (onRenameItem) {
+        await onRenameItem(fileToRename, newFileName.trim());
+      }
+      setRenameDialogOpen(false);
+    } catch (error) {
+      console.error('Error renaming item:', error);
+      // Opcional: mostrar un estado de error en el UI del diálogo
+    }
   };
 
   React.useEffect(() => {
@@ -213,18 +251,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
-                onClick={async () => {
-                  const typedName = window.prompt('Nuevo nombre', file.name);
-                  const newName = typedName?.trim();
-
-                  if (!newName || newName === file.name || !onRenameItem) {
-                    return;
-                  }
-
-                  try {
-                    await onRenameItem(file, newName);
-                  } catch (error) {
-                    console.error('Error renaming item:', error);
+                onClick={() => {
+                  if (onRenameItem) {
+                    openRenameDialog(file);
                   }
                 }}
               >
@@ -280,6 +309,37 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           </div>
         </div>
       )}
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Renombrar {fileToRename?.isDirectory ? 'carpeta' : 'archivo'}</DialogTitle>
+            <DialogDescription>
+              Introduce el nuevo nombre para "{fileToRename?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRenameSubmit}>
+            <div className="grid gap-4 py-4">
+              <Input
+                id="name"
+                value={newFileName}
+                onChange={(e) => setNewFileName(e.target.value)}
+                autoFocus
+                className="col-span-3"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRenameDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={!newFileName.trim() || newFileName === fileToRename?.name}>
+                Guardar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
