@@ -6,6 +6,9 @@ import {
   FolderOpen,
   HardDrive,
   LoaderCircle,
+  Monitor,
+  Navigation,
+  PanelTopOpen,
 } from 'lucide-react';
 import { SidebarContent, SidebarHeader } from './ui/sidebar';
 import type { FileItem } from './file-types';
@@ -35,6 +38,54 @@ function isSelectedPath(path: string, currentPath: string): boolean {
   return normalizePath(path).toLowerCase() === normalizePath(currentPath).toLowerCase();
 }
 
+function getAncestorPaths(path: string): string[] {
+  const normalized = normalizePath(path);
+  const parts = normalized.split('\\').filter(Boolean);
+
+  if (parts.length === 0) {
+    return [];
+  }
+
+  if (parts[0]?.endsWith(':')) {
+    const ancestors: string[] = [];
+    let current = `${parts[0]}\\`;
+    ancestors.push(current);
+
+    for (let index = 1; index < parts.length; index += 1) {
+      current = `${current}${parts[index]}\\`;
+      ancestors.push(current.replace(/[\\/]+$/, ''));
+    }
+
+    return ancestors;
+  }
+
+  return [normalized];
+}
+
+function getQuickAccessItems(rootPath: string, currentPath: string) {
+  const root = normalizePath(rootPath);
+  const current = normalizePath(currentPath);
+  const parent = getAncestorPaths(current).slice(-2, -1)[0] ?? root;
+
+  return [
+    {
+      label: 'Desktop',
+      path: root,
+      icon: Monitor,
+    },
+    {
+      label: 'Current folder',
+      path: current,
+      icon: Navigation,
+    },
+    {
+      label: 'Parent folder',
+      path: parent,
+      icon: PanelTopOpen,
+    },
+  ].filter((item, index, items) => items.findIndex((candidate) => candidate.path === item.path) === index);
+}
+
 const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   rootPath,
   currentPath,
@@ -42,6 +93,10 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   onLoadFolder,
 }) => {
   const root = React.useMemo(() => normalizePath(rootPath), [rootPath]);
+  const quickAccessItems = React.useMemo(
+    () => getQuickAccessItems(rootPath, currentPath),
+    [rootPath, currentPath],
+  );
   const [expandedPaths, setExpandedPaths] = React.useState<Set<string>>(() => new Set([root]));
   const [directoriesByPath, setDirectoriesByPath] = React.useState<Record<string, FileItem[]>>({});
   const [loadingPaths, setLoadingPaths] = React.useState<Set<string>>(new Set());
@@ -87,6 +142,20 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
     void ensureLoaded(root);
   }, [root, ensureLoaded]);
 
+  React.useEffect(() => {
+    const ancestors = getAncestorPaths(currentPath);
+
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      ancestors.forEach((ancestor) => next.add(normalizePath(ancestor)));
+      return next;
+    });
+
+    ancestors.forEach((ancestor) => {
+      void ensureLoaded(ancestor);
+    });
+  }, [currentPath, ensureLoaded]);
+
   const toggleExpand = async (path: string) => {
     const normalized = normalizePath(path);
 
@@ -114,7 +183,7 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
         <div
           className={`flex items-center gap-1 rounded-md px-2 py-1 text-sm ${
             isSelectedPath(normalized, currentPath)
-              ? 'bg-muted text-foreground'
+              ? 'bg-accent text-accent-foreground font-medium'
               : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
           }`}
           style={{ paddingLeft: `${8 + level * 14}px` }}
@@ -183,9 +252,40 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <HardDrive className="h-4 w-4 text-sky-600" aria-hidden="true" />
-          <span>File Tree</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <HardDrive className="h-4 w-4 text-foreground" aria-hidden="true" />
+            <span>File Tree</span>
+          </div>
+
+          <div className="space-y-1">
+            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Quick Access
+            </p>
+            {quickAccessItems.map((item) => {
+              const Icon = item.icon;
+              const selected = isSelectedPath(item.path, currentPath);
+
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => {
+                    void onNavigate(item.path);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left transition-colors ${
+                    selected
+                      ? 'bg-accent text-accent-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  }`}
+                  title={item.path}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </SidebarHeader>
 
