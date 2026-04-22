@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { SidebarContent, SidebarHeader } from './ui/sidebar';
 import type { FileItem } from './file-types';
+import { getAncestorPaths, getPathLabel, normalizePath } from '../lib/path-utils';
 
 interface FileTreeSidebarProps {
   rootPath: string;
@@ -20,46 +21,12 @@ interface FileTreeSidebarProps {
   onLoadFolder: (path: string) => Promise<FileItem[]>;
 }
 
-function normalizePath(path: string): string {
-  const normalized = path.replace(/\//g, '\\').replace(/\\+$/, '');
-  if (normalized.endsWith(':')) {
-    return `${normalized}\\`;
-  }
-  return normalized;
-}
-
 function getNodeName(path: string): string {
-  const normalized = normalizePath(path);
-  const parts = normalized.split('\\').filter(Boolean);
-  return parts[parts.length - 1] || normalized;
+  return getPathLabel(normalizePath(path));
 }
 
 function isSelectedPath(path: string, currentPath: string): boolean {
   return normalizePath(path).toLowerCase() === normalizePath(currentPath).toLowerCase();
-}
-
-function getAncestorPaths(path: string): string[] {
-  const normalized = normalizePath(path);
-  const parts = normalized.split('\\').filter(Boolean);
-
-  if (parts.length === 0) {
-    return [];
-  }
-
-  if (parts[0]?.endsWith(':')) {
-    const ancestors: string[] = [];
-    let current = `${parts[0]}\\`;
-    ancestors.push(current);
-
-    for (let index = 1; index < parts.length; index += 1) {
-      current = `${current}${parts[index]}\\`;
-      ancestors.push(current.replace(/[\\/]+$/, ''));
-    }
-
-    return ancestors;
-  }
-
-  return [normalized];
 }
 
 function getQuickAccessItems(rootPath: string, currentPath: string) {

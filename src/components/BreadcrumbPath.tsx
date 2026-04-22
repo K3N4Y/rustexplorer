@@ -1,55 +1,11 @@
 import React from 'react';
 import { ChevronRight, House } from 'lucide-react';
-
-interface BreadcrumbItem {
-  label: string;
-  path: string;
-}
+import { buildBreadcrumbItems } from '../lib/path-utils';
 
 interface BreadcrumbPathProps {
   currentPath: string;
   onNavigate: (path: string) => Promise<void>;
   children?: React.ReactNode;
-}
-
-function buildBreadcrumbItems(path: string): BreadcrumbItem[] {
-  const normalized = path.trim();
-
-  if (!normalized || normalized === '/') {
-    return [{ label: 'Root', path: '/' }];
-  }
-
-  const parts = normalized.split(/[\\/]+/).filter(Boolean);
-
-  if (parts.length === 0) {
-    return [{ label: 'Root', path: '/' }];
-  }
-
-  if (parts[0].endsWith(':')) {
-    const drive = parts[0];
-    const items: BreadcrumbItem[] = [{ label: drive, path: `${drive}\\` }];
-
-    let current = `${drive}\\`;
-    for (let index = 1; index < parts.length; index += 1) {
-      const segment = parts[index];
-      current = `${current}${segment}\\`;
-      items.push({
-        label: segment,
-        path: current.replace(/[\\/]+$/, ''),
-      });
-    }
-
-    return items;
-  }
-
-  let current = '';
-  return parts.map((segment) => {
-    current += `/${segment}`;
-    return {
-      label: segment,
-      path: current,
-    };
-  });
 }
 
 const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate, children }) => {
