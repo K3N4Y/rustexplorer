@@ -9,6 +9,8 @@ import {
   RefreshCcw,
   ArrowUp,
   ArrowDown,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
@@ -55,6 +57,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const [newFileName, setNewFileName] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
+
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -286,22 +290,45 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   return (
     <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative">
       <div className="sticky top-0 z-10 bg-card border-b border-border/50">
-        <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
+        <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath}>
+          <div className="flex items-center gap-1 rounded-md border border-border bg-muted/20 p-0.5 shadow-sm">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all text-muted-foreground hover:text-foreground ${
+                viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'hover:bg-muted/60'
+              }`}
+              title="View as List"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all text-muted-foreground hover:text-foreground ${
+                viewMode === 'grid' ? 'bg-background shadow-sm text-foreground' : 'hover:bg-muted/60'
+              }`}
+              title="View as Grid"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        </BreadcrumbPath>
 
-        <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
-          <span className={sortHeaderClassName} onClick={() => handleSort('name')}>
-            Name <SortIcon option="name" />
-          </span>
-          <span className={sortHeaderClassName} onClick={() => handleSort('modified')}>
-            Modified <SortIcon option="modified" />
-          </span>
-          <span className={sortHeaderClassName} onClick={() => handleSort('type')}>
-            Type <SortIcon option="type" />
-          </span>
-          <span className={sortHeaderClassName} onClick={() => handleSort('size')}>
-            Size <SortIcon option="size" />
-          </span>
-        </div>
+        {viewMode === 'list' && (
+          <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
+            <span className={sortHeaderClassName} onClick={() => handleSort('name')}>
+              Name <SortIcon option="name" />
+            </span>
+            <span className={sortHeaderClassName} onClick={() => handleSort('modified')}>
+              Modified <SortIcon option="modified" />
+            </span>
+            <span className={sortHeaderClassName} onClick={() => handleSort('type')}>
+              Type <SortIcon option="type" />
+            </span>
+            <span className={sortHeaderClassName} onClick={() => handleSort('size')}>
+              Size <SortIcon option="size" />
+            </span>
+          </div>
+        )}
       </div>
 
       {isLoading && (
@@ -352,84 +379,152 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      {!isLoading && !errorMessage && visibleFiles.map((file, index) => {
-        const folder = isFolder(file);
-        const isSelected = selectedIndex === index;
-        const isHovered = hoveredIndex === index;
+      {!isLoading && !errorMessage && (
+        viewMode === 'list' ? (
+          <div>
+            {visibleFiles.map((file, index) => {
+              const folder = isFolder(file);
+              const isSelected = selectedIndex === index;
+              const isHovered = hoveredIndex === index;
 
-        return (
-          <FileContextMenu
-            key={file.path}
-            file={file}
-            onOpen={(item) => void openItem(item)}
-            onRename={() => {
-              if (onRenameItem) openRenameDialog(file);
-            }}
-            onDelete={() => {
-              if (onDeleteItem) openDeleteDialog(file);
-            }}
-          >
-            <div
-              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
-                isSelected
-                  ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
-                  : isHovered
-                    ? 'bg-muted/40'
-                    : 'bg-transparent'
-              }`}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              onContextMenu={() => setSelectedIndex(index)}
-              onClick={() => {
-                setSelectedIndex(index);
-              }}
-              onDoubleClick={() => {
-                setSelectedIndex(index);
-                void openItem(file);
-              }}
-            >
-              <div className="flex items-center gap-3 truncate">
-                {folder ? (
-                  <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-amber-500 shadow-sm border border-amber-500/20">
-                    <FolderIcon className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+              return (
+                <FileContextMenu
+                  key={file.path}
+                  file={file}
+                  onOpen={(item) => void openItem(item)}
+                  onRename={() => {
+                    if (onRenameItem) openRenameDialog(file);
+                  }}
+                  onDelete={() => {
+                    if (onDeleteItem) openDeleteDialog(file);
+                  }}
+                >
+                  <div
+                    className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
+                      isSelected
+                        ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
+                        : isHovered
+                          ? 'bg-muted/40'
+                          : 'bg-transparent'
+                    }`}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onContextMenu={() => setSelectedIndex(index)}
+                    onClick={() => {
+                      setSelectedIndex(index);
+                    }}
+                    onDoubleClick={() => {
+                      setSelectedIndex(index);
+                      void openItem(file);
+                    }}
+                  >
+                    <div className="flex items-center gap-3 truncate">
+                      {folder ? (
+                        <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 text-amber-500 shadow-sm border border-amber-500/20">
+                          <FolderIcon className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                        </div>
+                      ) : (
+                        <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-500/10 text-zinc-500 shadow-sm border border-zinc-500/20">
+                          <FileIcon
+                            className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                          />
+                        </div>
+                      )}
+                      <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
+                    </div>
+
+                    <span className={`text-[13px] ${isSelected ? 'font-medium text-foreground/90' : 'text-muted-foreground'} tracking-tight`}>
+                      {formatDate(file.modified)}
+                    </span>
+
+                    <span
+                      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-sm ${
+                        folder 
+                          ? isSelected 
+                            ? 'bg-amber-100/50 border-amber-200 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/30 dark:text-amber-200' 
+                            : 'bg-amber-50 border-amber-100/50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
+                          : isSelected 
+                            ? 'bg-zinc-100 border-zinc-200 text-zinc-800 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-200'
+                            : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
+                      }`}
+                    >
+                      {folder ? 'DIRECTORY' : 'FILE'}
+                    </span>
+
+                    <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
+                      {formatSize(file.size, folder)}
+                    </span>
                   </div>
-                ) : (
-                  <div className="p-1.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-500/10 text-zinc-500 shadow-sm border border-zinc-500/20">
-                    <FileIcon
-                      className={`h-4 w-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
-                      strokeWidth={2}
-                      aria-hidden="true"
-                    />
+                </FileContextMenu>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 p-5">
+            {visibleFiles.map((file, index) => {
+              const folder = isFolder(file);
+              const isSelected = selectedIndex === index;
+              const isHovered = hoveredIndex === index;
+
+              return (
+                <FileContextMenu
+                  key={file.path}
+                  file={file}
+                  onOpen={(item) => void openItem(item)}
+                  onRename={() => {
+                    if (onRenameItem) openRenameDialog(file);
+                  }}
+                  onDelete={() => {
+                    if (onDeleteItem) openDeleteDialog(file);
+                  }}
+                >
+                  <div
+                    className={`flex flex-col items-center justify-center p-4 rounded-[14px] border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary/10 border-primary/30 shadow-sm ring-1 ring-primary/20'
+                        : isHovered
+                          ? 'bg-muted/80 border-border/80'
+                          : 'bg-card border-transparent hover:border-border/50'
+                    }`}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onContextMenu={() => setSelectedIndex(index)}
+                    onClick={() => {
+                      setSelectedIndex(index);
+                    }}
+                    onDoubleClick={() => {
+                      setSelectedIndex(index);
+                      void openItem(file);
+                    }}
+                  >
+                    <div className="mb-3.5 relative">
+                      {folder ? (
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm transition-all ${isSelected ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 ring-2 ring-amber-500/20 ring-offset-1 ring-offset-background' : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/15 border border-amber-500/20'}`}>
+                          <FolderIcon className="h-7 w-7" strokeWidth={2.2} aria-hidden="true" />
+                        </div>
+                      ) : (
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm transition-all ${isSelected ? 'bg-primary/20 text-primary border border-primary/30 ring-2 ring-primary/20 ring-offset-1 ring-offset-background' : 'bg-zinc-500/10 text-zinc-500 hover:bg-zinc-500/15 border border-zinc-500/20'}`}>
+                          <FileIcon className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
+                        </div>
+                      )}
+                    </div>
+                    <span 
+                      className={`text-[12.5px] text-center w-full break-words line-clamp-2 px-1 leading-snug transition-colors ${
+                        isSelected ? 'font-semibold text-primary' : 'font-medium text-foreground/90'
+                      }`}
+                      title={file.name}
+                    >
+                      {file.name}
+                    </span>
                   </div>
-                )}
-                <span className={`truncate leading-tight ${isSelected ? 'text-sm font-semibold tracking-tight text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
-              </div>
-
-              <span className={`text-[13px] ${isSelected ? 'font-medium text-foreground/90' : 'text-muted-foreground'} tracking-tight`}>
-                {formatDate(file.modified)}
-              </span>
-
-              <span
-                className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-sm ${
-                  folder 
-                    ? isSelected 
-                      ? 'bg-amber-100/50 border-amber-200 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/30 dark:text-amber-200' 
-                      : 'bg-amber-50 border-amber-100/50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
-                    : isSelected 
-                      ? 'bg-zinc-100 border-zinc-200 text-zinc-800 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-200'
-                      : 'bg-zinc-50 border-zinc-100 text-zinc-600 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-400'
-                }`}
-              >
-                {folder ? 'DIRECTORY' : 'FILE'}
-              </span>
-
-              <span className={`text-[13px] font-medium tabular-nums ${isSelected ? 'text-foreground/90' : 'text-muted-foreground'}`}>
-                {formatSize(file.size, folder)}
-              </span>
-            </div>
-          </FileContextMenu>
-        );
-      })}
+                </FileContextMenu>
+              );
+            })}
+          </div>
+        )
+      )}
 
       {currentPath !== '/' && !isLoading && !errorMessage && !isEmpty && (
         <div className="px-4 py-3 border-t border-border bg-muted/20 sticky bottom-0 z-10 hidden">

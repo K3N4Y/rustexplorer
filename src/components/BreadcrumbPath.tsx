@@ -9,6 +9,7 @@ interface BreadcrumbItem {
 interface BreadcrumbPathProps {
   currentPath: string;
   onNavigate: (path: string) => Promise<void>;
+  children?: React.ReactNode;
 }
 
 function buildBreadcrumbItems(path: string): BreadcrumbItem[] {
@@ -51,11 +52,11 @@ function buildBreadcrumbItems(path: string): BreadcrumbItem[] {
   });
 }
 
-const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate }) => {
+const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate, children }) => {
   const items = React.useMemo(() => buildBreadcrumbItems(currentPath), [currentPath]);
 
   return (
-    <nav className="border-b border-border bg-transparent px-4 py-2.5" aria-label="Breadcrumb">
+    <nav className="border-b border-border bg-transparent px-4 py-2.5 flex items-center justify-between" aria-label="Breadcrumb">
       <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-[12px] font-medium tracking-[0.01em] text-muted-foreground">
         <li>
           <button
@@ -95,6 +96,7 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
           );
         })}
       </ol>
+      {children && <div className="flex-shrink-0 ml-4">{children}</div>}
     </nav>
   );
 };
