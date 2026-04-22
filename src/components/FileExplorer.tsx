@@ -22,12 +22,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const currentPath = initialPath;
   const files = initialFiles;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
 
   React.useEffect(() => {
     setCurrentPage(1);
+    setSelectedIndex(0);
   }, [initialFiles, currentPath]);
 
   const totalPages = Math.ceil(files.length / itemsPerPage);
@@ -51,6 +53,47 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
     // Si es archivo, no hacemos nada (podrías agregar onClick para abrirlo)
   };
+
+  React.useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visibleFiles.length > 0) {
+          setSelectedIndex((prev) => Math.min(prev + 1, visibleFiles.length - 1));
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visibleFiles.length > 0) {
+          setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (visibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
+          const selectedItem = visibleFiles[selectedIndex];
+          if (selectedItem) {
+            await handleItemClick(selectedItem);
+          }
+        }
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        const parentPath = getParentPath(currentPath);
+        if (parentPath !== '/' && parentPath !== currentPath) {
+          await navigateToPath(parentPath);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, visibleFiles, currentPath]);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return '-';
@@ -109,15 +152,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       {/* Files List */}
       {visibleFiles.map((file, index) => {
         const folder = isFolder(file);
+        const isSelected = selectedIndex === index;
+        const isHovered = hoveredIndex === index;
         return (
           <div
             key={index}
             className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
-              hoveredIndex === index ? 'bg-muted/50' : 'bg-transparent'
+              isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
             }`}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
-            onClick={() => handleItemClick(file)}
+            onClick={() => {
+              setSelectedIndex(index);
+              handleItemClick(file);
+            }}
           >
             {/* Name + Icon */}
             <div className="flex items-center gap-2 truncate">
