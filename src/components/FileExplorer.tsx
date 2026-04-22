@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 import { useSettings } from '../lib/settings-provider';
 
@@ -155,39 +162,62 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         const isSelected = selectedIndex === index;
         const isHovered = hoveredIndex === index;
         return (
-          <div
-            key={index}
-            className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
-              isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
-            }`}
-            onMouseEnter={() => setHoveredIndex(index)}
-            onMouseLeave={() => setHoveredIndex(null)}
-            onClick={() => {
-              setSelectedIndex(index);
-              handleItemClick(file);
-            }}
-          >
-            {/* Name + Icon */}
-            <div className="flex items-center gap-2 truncate">
-              {folder ? (
-                <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
-              ) : (
-                <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-              )}
-              <span className="truncate text-sm font-medium">{file.name}</span>
-            </div>
+          <ContextMenu key={index}>
+            <ContextMenuTrigger asChild>
+              <div
+                className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
+                  isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
+                }`}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => {
+                  setSelectedIndex(index);
+                  handleItemClick(file);
+                }}
+              >
+                {/* Name + Icon */}
+                <div className="flex items-center gap-2 truncate">
+                  {folder ? (
+                    <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
+                  ) : (
+                    <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  )}
+                  <span className="truncate text-sm font-medium">{file.name}</span>
+                </div>
 
-            {/* Modified */}
-            <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
+                {/* Modified */}
+                <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
 
-            {/* Type Badge */}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-              {folder ? 'Directory' : 'File'}
-            </span>
+                {/* Type Badge */}
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                  {folder ? 'Directory' : 'File'}
+                </span>
 
-            {/* Size */}
-            <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
-          </div>
+                {/* Size */}
+                <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem onClick={() => handleItemClick(file)}>
+                Abrir
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  navigator.clipboard.writeText(file.path);
+                  // Podrías añadir un toast aquí para feedback
+                }}
+              >
+                Copiar ruta
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem disabled className="text-muted-foreground">
+                Renombrar (Próximamente)
+              </ContextMenuItem>
+              <ContextMenuItem disabled className="text-destructive">
+                Eliminar (Próximamente)
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         );
       })}
 
