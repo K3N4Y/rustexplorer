@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { openPath } from '@tauri-apps/plugin-opener';
 import {
   AlertCircle,
   File as FileIcon,
@@ -109,9 +110,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
   };
 
-  const handleItemClick = async (item: FileItem) => {
+  const toOpenablePath = (path: string): string => {
+    if (!/^[a-zA-Z]:\\/.test(path)) {
+      return path;
+    }
+
+    return path.replace(/\\/g, '/');
+  };
+
+  const openItem = async (item: FileItem) => {
     if (isFolder(item)) {
       await navigateToPath(item.path);
+      return;
+    }
+
+    try {
+      await openPath(toOpenablePath(item.path));
+    } catch (error) {
+      console.error('Error opening file:', error);
     }
   };
 
@@ -182,7 +198,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         if (visibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
           const selectedItem = visibleFiles[selectedIndex];
           if (selectedItem) {
-            await handleItemClick(selectedItem);
+            await openItem(selectedItem);
           }
         }
       } else if (e.key === 'Backspace') {
@@ -332,7 +348,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <FileContextMenu
             key={file.path}
             file={file}
-            onOpen={(file) => void handleItemClick(file)}
+            onOpen={(item) => void openItem(item)}
             onRename={() => {
               if (onRenameItem) openRenameDialog(file);
             }}
@@ -350,9 +366,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               }`}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
+              onContextMenu={() => setSelectedIndex(index)}
               onClick={() => {
                 setSelectedIndex(index);
-                void handleItemClick(file);
+              }}
+              onDoubleClick={() => {
+                setSelectedIndex(index);
+                void openItem(file);
               }}
             >
               <div className="flex items-center gap-3 truncate">
