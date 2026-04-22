@@ -1,35 +1,10 @@
 import React, { useState } from 'react';
-import { File as FileIcon, Folder as FolderIcon, TriangleAlert } from 'lucide-react';
+import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { FileContextMenu } from './FileContextMenu';
+import { RenameDialog } from './RenameDialog';
+import { DeleteAlertDialog } from './DeleteAlertDialog';
 
 import { useSettings } from '../lib/settings-provider';
 
@@ -231,68 +206,46 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         const isHovered = hoveredIndex === index;
 
         return (
-          <ContextMenu key={file.path}>
-            <ContextMenuTrigger asChild>
-              <div
-                className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
-                  isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
-                }`}
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                onClick={() => {
-                  setSelectedIndex(index);
-                  void handleItemClick(file);
-                }}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  {folder ? (
-                    <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
-                  ) : (
-                    <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-                  )}
-                  <span className="truncate text-sm font-medium">{file.name}</span>
-                </div>
-
-                <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
-
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                  {folder ? 'Directory' : 'File'}
-                </span>
-
-                <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
+          <FileContextMenu
+            key={file.path}
+            file={file}
+            onOpen={(file) => void handleItemClick(file)}
+            onRename={() => {
+              if (onRenameItem) openRenameDialog(file);
+            }}
+            onDelete={() => {
+              if (onDeleteItem) openDeleteDialog(file);
+            }}
+          >
+            <div
+              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
+                isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
+              }`}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              onClick={() => {
+                setSelectedIndex(index);
+                void handleItemClick(file);
+              }}
+            >
+              <div className="flex items-center gap-2 truncate">
+                {folder ? (
+                  <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
+                ) : (
+                  <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                )}
+                <span className="truncate text-sm font-medium">{file.name}</span>
               </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-48">
-              <ContextMenuItem onClick={() => void handleItemClick(file)}>Abrir</ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => {
-                  void navigator.clipboard.writeText(file.path);
-                }}
-              >
-                Copiar ruta
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onClick={() => {
-                  if (onRenameItem) {
-                    openRenameDialog(file);
-                  }
-                }}
-              >
-                Renombrar
-              </ContextMenuItem>
-              <ContextMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => {
-                  if (onDeleteItem) {
-                    openDeleteDialog(file);
-                  }
-                }}
-              >
-                Eliminar
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+
+              <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
+
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                {folder ? 'Directory' : 'File'}
+              </span>
+
+              <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
+            </div>
+          </FileContextMenu>
         );
       })}
 
@@ -337,75 +290,27 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      <Dialog
-        open={renameDialogOpen}
-        onOpenChange={(open: boolean) => {
+      <RenameDialog
+        isOpen={renameDialogOpen}
+        onOpenChange={(open) => {
           setRenameDialogOpen(open);
-          if (!open) {
-            setFileToRename(null);
-          }
+          if (!open) setFileToRename(null);
         }}
-      >
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Renombrar {fileToRename?.isDirectory ? 'carpeta' : 'archivo'}</DialogTitle>
-            <DialogDescription>
-              Introduce el nuevo nombre para "{fileToRename?.name}".
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleRenameSubmit}>
-            <div className="grid gap-4 py-4">
-              <Input
-                id="name"
-                value={newFileName}
-                onChange={(e) => setNewFileName(e.target.value)}
-                autoFocus
-                className="col-span-3"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRenameDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={!newFileName.trim() || newFileName === fileToRename?.name}>
-                Guardar
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+        fileToRename={fileToRename}
+        newFileName={newFileName}
+        setNewFileName={setNewFileName}
+        onSubmit={handleRenameSubmit}
+      />
 
-      <AlertDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open: boolean) => {
+      <DeleteAlertDialog
+        isOpen={deleteDialogOpen}
+        onOpenChange={(open) => {
           setDeleteDialogOpen(open);
-          if (!open) {
-            setFileToDelete(null);
-          }
+          if (!open) setFileToDelete(null);
         }}
-      >
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogMedia>
-              <TriangleAlert className="h-5 w-5 text-destructive" />
-            </AlertDialogMedia>
-            <AlertDialogTitle>
-              Eliminar {fileToDelete?.isDirectory ? 'carpeta' : 'archivo'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {fileToDelete?.isDirectory
-                ? `Se eliminara "${fileToDelete?.name}" y todo su contenido. Esta accion no se puede deshacer.`
-                : `Se eliminara "${fileToDelete?.name}". Esta accion no se puede deshacer.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirm}>
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        fileToDelete={fileToDelete}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 };
