@@ -6,6 +6,8 @@ import {
   FolderOpen,
   LoaderCircle,
   RefreshCcw,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
@@ -26,6 +28,9 @@ interface FileExplorerProps {
   onDeleteItem?: (item: FileItem) => Promise<void>;
   onRetry?: () => Promise<unknown>;
 }
+
+type SortOption = 'name' | 'modified' | 'type' | 'size';
+type SortOrder = 'asc' | 'desc';
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
@@ -48,18 +53,50 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
 
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
 
   React.useEffect(() => {
     setCurrentPage(1);
     setSelectedIndex(0);
-  }, [initialFiles, currentPath]);
+  }, [initialFiles, currentPath, sortBy, sortOrder]);
 
-  const totalPages = Math.ceil(files.length / itemsPerPage);
+  const sortedFiles = [...files].sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) {
+      return a.isDirectory ? -1 : 1;
+    }
+
+    let comparison = 0;
+    switch (sortBy) {
+      case 'name':
+        comparison = a.name.localeCompare(b.name);
+        break;
+      case 'size':
+        comparison = a.size - b.size;
+        break;
+      case 'modified': {
+        const timeA = a.modified ? new Date(a.modified).getTime() : 0;
+        const timeB = b.modified ? new Date(b.modified).getTime() : 0;
+        comparison = timeA - timeB;
+        break;
+      }
+      case 'type': {
+        const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
+        const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
+        comparison = extA.localeCompare(extB);
+        break;
+      }
+    }
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const visibleFiles = files.slice(startIndex, startIndex + itemsPerPage);
-  const isEmpty = !isLoading && !errorMessage && files.length === 0;
+  const visibleFiles = sortedFiles.slice(startIndex, startIndex + itemsPerPage);
+  const isEmpty = !isLoading && !errorMessage && sortedFiles.length === 0;
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
@@ -203,15 +240,37 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     return parts.join('\\') || '/';
   };
 
+  const handleSort = (option: SortOption) => {
+    if (sortBy === option) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(option);
+      setSortOrder('asc');
+    }
+  };
+
+  const SortIcon = ({ option }: { option: SortOption }) => {
+    if (sortBy !== option) return null;
+    return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
   return (
     <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5">
       <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
-      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] border-b border-border/50 bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78">
-        <span>Name</span>
-        <span>Modified</span>
-        <span>Type</span>
-        <span>Size</span>
+      <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] border-b border-border/50 bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
+        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('name')}>
+          Name <SortIcon option="name" />
+        </span>
+        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('modified')}>
+          Modified <SortIcon option="modified" />
+        </span>
+        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('type')}>
+          Type <SortIcon option="type" />
+        </span>
+        <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('size')}>
+          Size <SortIcon option="size" />
+        </span>
       </div>
 
       {isLoading && (
