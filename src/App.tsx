@@ -1,6 +1,5 @@
 import { InputGroupDemo } from "./components/SearchBar";
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,120 +10,39 @@ import {
 import "./App.css";
 import FileExplorer from "./components/FileExplorer";
 import FileTreeSidebar from "./components/FileTreeSidebar";
-import type { FileItem } from "./components/file-types";
+import { useFileNavigation } from "./hooks/use-file-navigation";
+import { getPathLabel } from "./lib/path-utils";
 import { Button } from "./components/ui/button";
-import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "./components/ui/sidebar";
 import { SettingsDialog } from "./components/settings-dialog";
-
-function getParentPath(path: string): string {
-  const normalized = path.replace(/[\\/]+$/, "");
-  const parts = normalized.split(/[\\/]+/);
-
-  if (parts.length <= 1) {
-    return path;
-  }
-
-  const lastSegment = parts.pop();
-  if (!lastSegment) {
-    return path;
-  }
-
-  if (parts.length === 1 && parts[0].endsWith(":")) {
-    return `${parts[0]}\\`;
-  }
-
-  return parts.join("\\") || path;
-}
-
-function getPathLabel(path: string): string {
-  const normalized = path.replace(/[\\/]+$/, "");
-  const parts = normalized.split(/[\\/]+/).filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentPath, setCurrentPath] = useState(rootPath);
-  const [history, setHistory] = useState<string[]>([rootPath]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSearchActive, setIsSearchActive] = useState(false);
-
-  async function loadFolder(path: string): Promise<FileItem[]> {
-    const response = await invoke<Array<{
-      name: string;
-      path: string;
-      size: number;
-      modified: string | null;
-      is_dir: boolean;
-    }>>("get_files", { path });
-
-    return response.map((item) => ({
-      name: item.name,
-      path: item.path,
-      size: item.size,
-      modified: item.modified,
-      isDirectory: item.is_dir,
-    }));
-  }
-
-  const navigateToPath = async (path: string, options?: { recordHistory?: boolean }) => {
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const nextFiles = await loadFolder(path);
-      setFiles(nextFiles);
-      setCurrentPath(path);
-
-      if (options?.recordHistory !== false) {
-        const nextHistory = history.slice(0, historyIndex + 1);
-        if (nextHistory[nextHistory.length - 1] !== path) {
-          setHistory([...nextHistory, path]);
-          setHistoryIndex(nextHistory.length);
-        }
-      }
-
-      return nextFiles;
-    } catch (error) {
-      console.error("Error loading folder:", error);
-      setErrorMessage("No se pudo cargar esta carpeta. Intenta de nuevo.");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const renameItem = async (item: FileItem, newName: string) => {
-    await invoke("rename_file", {
-      source_path: item.path,
-      target_name: newName,
-    });
-
-    await navigateToPath(currentPath);
-  };
-
-  const deleteItem = async (item: FileItem) => {
-    await invoke("delete_file", {
-      target_path: item.path,
-    });
-
-    await navigateToPath(currentPath);
-  };
-
-  useEffect(() => {
-    navigateToPath(rootPath)
-      .catch((error) => {
-        console.error("Error loading initial folder:", error);
-      });
-  }, []);
-
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
-  const parentPath = getParentPath(currentPath);
-  const canGoUp = parentPath !== currentPath;
+  const {
+    canGoBack,
+    canGoForward,
+    canGoUp,
+    currentPath,
+    deleteItem,
+    errorMessage,
+    files,
+    history,
+    historyIndex,
+    isLoading,
+    loadFolder,
+    navigateToPath,
+    parentPath,
+    renameItem,
+    setCurrentPath,
+    setFiles,
+    setHistoryIndex,
+  } = useFileNavigation(rootPath);
 
   const handleGoBack = async () => {
     if (!canGoBack) return;
