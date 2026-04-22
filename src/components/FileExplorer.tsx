@@ -18,6 +18,7 @@ interface FileExplorerProps {
   initialPath?: string;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
+  onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
@@ -25,6 +26,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   initialPath = '/',
   onLoadFolder,
   onPathChange,
+  onRenameItem,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
@@ -210,8 +212,23 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 Copiar ruta
               </ContextMenuItem>
               <ContextMenuSeparator />
-              <ContextMenuItem disabled className="text-muted-foreground">
-                Renombrar (Próximamente)
+              <ContextMenuItem
+                onClick={async () => {
+                  const typedName = window.prompt('Nuevo nombre', file.name);
+                  const newName = typedName?.trim();
+
+                  if (!newName || newName === file.name || !onRenameItem) {
+                    return;
+                  }
+
+                  try {
+                    await onRenameItem(file, newName);
+                  } catch (error) {
+                    console.error('Error renaming item:', error);
+                  }
+                }}
+              >
+                Renombrar
               </ContextMenuItem>
               <ContextMenuItem disabled className="text-destructive">
                 Eliminar (Próximamente)

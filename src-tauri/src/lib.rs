@@ -26,7 +26,7 @@ struct SearchDoneEvent {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![search_with_ignore, get_files])
+    .invoke_handler(tauri::generate_handler![search_with_ignore, get_files, rename_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -144,6 +144,29 @@ async fn search_with_ignore(
 #[tauri::command]
 fn get_files(path: String) -> Result<Vec<FileDetailDTO>, String> {
     read_one_level_files(Path::new(&path)).map_err(|err| err.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn rename_file(source_path: String, target_name: String) -> Result<(), String> {
+    if target_name.trim().is_empty() {
+        return Err("target name cannot be empty".to_string());
+    }
+
+    if target_name.contains('/') || target_name.contains('\\') {
+        return Err("target name cannot contain path separators".to_string());
+    }
+
+    let source = Path::new(&source_path);
+    let parent = source
+        .parent()
+        .ok_or_else(|| "source has no parent directory".to_string())?;
+    let target = parent.join(target_name);
+
+    if target.exists() {
+        return Err("a file or folder with that name already exists".to_string());
+    }
+
+    fs::rename(source, target).map_err(|err| err.to_string())
 }
 
 fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {

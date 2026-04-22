@@ -38,6 +38,15 @@ function App() {
     return nextFiles;
   };
 
+  const renameItem = async (item: FileItem, newName: string) => {
+    await invoke("rename_file", {
+      source_path: item.path,
+      target_name: newName,
+    });
+
+    await navigateToPath(currentPath);
+  };
+
   useEffect(() => {
     navigateToPath(rootPath)
       .catch((error) => {
@@ -76,6 +85,7 @@ function App() {
               initialFiles={files}
               initialPath={currentPath}
               onLoadFolder={loadFolder}
+              onRenameItem={renameItem}
               onPathChange={(path, nextFiles) => {
                 setCurrentPath(path);
                 setFiles(nextFiles);
