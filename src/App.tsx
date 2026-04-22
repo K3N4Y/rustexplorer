@@ -50,6 +50,7 @@ function App() {
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   async function loadFolder(path: string): Promise<FileItem[]> {
     const response = await invoke<Array<{
@@ -231,6 +232,7 @@ function App() {
           <div className="flex w-full items-center gap-3 md:w-auto">
             <InputGroupDemo 
               currentPath={currentPath}
+              onSearchStateChange={setIsSearchActive}
               onSearchResults={(results) => setFiles(results)}
               onClearSearch={() => navigateToPath(currentPath, { recordHistory: false })}
             />
@@ -243,6 +245,7 @@ function App() {
               initialFiles={files}
               initialPath={currentPath}
               isLoading={isLoading}
+              isSearchActive={isSearchActive}
               errorMessage={errorMessage}
               onLoadFolder={loadFolder}
               onRenameItem={renameItem}

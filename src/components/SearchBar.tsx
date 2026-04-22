@@ -15,6 +15,7 @@ import {
 interface InputGroupDemoProps {
   currentPath: string;
   onSearchResults: (files: FileItem[]) => void;
+  onSearchStateChange: (isActive: boolean) => void;
   onClearSearch: () => Promise<unknown>;
 }
 
@@ -34,7 +35,12 @@ interface SearchDonePayload {
   total: number;
 }
 
-export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: InputGroupDemoProps) {
+export function InputGroupDemo({
+  currentPath,
+  onSearchResults,
+  onSearchStateChange,
+  onClearSearch,
+}: InputGroupDemoProps) {
   const [search, setSearch] = useState("");
   const [resultsCount, setResultsCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
@@ -80,6 +86,7 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
       activeRequestRef.current = null;
       setIsSearching(false);
       setResultsCount(0);
+      onSearchStateChange(false);
       await onClearSearch();
       return;
     }
@@ -94,6 +101,7 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
       let streamedFiles: FileItem[] = [];
       setIsSearching(true);
       setResultsCount(0);
+      onSearchStateChange(true);
       onSearchResults([]);
 
       unlistenResultRef.current = await listen<SearchResultPayload>("search-results-chunk", (event) => {
@@ -148,6 +156,7 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
       clearFlushTimer();
       activeRequestRef.current = null;
       setIsSearching(false);
+      onSearchStateChange(false);
       clearSearchListeners();
       console.error("Search failed:", error);
     }
@@ -166,6 +175,7 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
         hadSearchRef.current = false;
         setIsSearching(false);
         setResultsCount(0);
+        onSearchStateChange(false);
         void onClearSearch();
       }
       return;
@@ -193,10 +203,11 @@ export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: 
     setResultsCount(0);
     setIsSearching(false);
     hadSearchRef.current = false;
+    onSearchStateChange(false);
     clearFlushTimer();
     clearSearchListeners();
     activeRequestRef.current = null;
-  }, [currentPath]);
+  }, [currentPath, onSearchStateChange]);
 
   return (
     <InputGroup className="max-w-sm">

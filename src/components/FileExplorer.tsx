@@ -22,6 +22,7 @@ interface FileExplorerProps {
   initialFiles: FileItem[];
   initialPath?: string;
   isLoading?: boolean;
+  isSearchActive?: boolean;
   errorMessage?: string | null;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
@@ -37,6 +38,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
   initialPath = '/',
   isLoading = false,
+  isSearchActive = false,
   errorMessage = null,
   onLoadFolder,
   onPathChange,
@@ -65,34 +67,36 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setSelectedIndex(0);
   }, [initialFiles, currentPath, sortBy, sortOrder]);
 
-  const sortedFiles = [...files].sort((a, b) => {
-    if (a.isDirectory !== b.isDirectory) {
-      return a.isDirectory ? -1 : 1;
-    }
+  const sortedFiles = isSearchActive
+    ? files
+    : [...files].sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
 
-    let comparison = 0;
-    switch (sortBy) {
-      case 'name':
-        comparison = a.name.localeCompare(b.name);
-        break;
-      case 'size':
-        comparison = a.size - b.size;
-        break;
-      case 'modified': {
-        const timeA = a.modified ? new Date(a.modified).getTime() : 0;
-        const timeB = b.modified ? new Date(b.modified).getTime() : 0;
-        comparison = timeA - timeB;
-        break;
-      }
-      case 'type': {
-        const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
-        const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
-        comparison = extA.localeCompare(extB);
-        break;
-      }
-    }
-    return sortOrder === 'asc' ? comparison : -comparison;
-  });
+        let comparison = 0;
+        switch (sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'size':
+            comparison = a.size - b.size;
+            break;
+          case 'modified': {
+            const timeA = a.modified ? new Date(a.modified).getTime() : 0;
+            const timeB = b.modified ? new Date(b.modified).getTime() : 0;
+            comparison = timeA - timeB;
+            break;
+          }
+          case 'type': {
+            const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
+            const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
+            comparison = extA.localeCompare(extB);
+            break;
+          }
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
 
   const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -257,6 +261,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   const handleSort = (option: SortOption) => {
+    if (isSearchActive) {
+      return;
+    }
+
     if (sortBy === option) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -266,9 +274,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   const SortIcon = ({ option }: { option: SortOption }) => {
+    if (isSearchActive) return null;
     if (sortBy !== option) return null;
     return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />;
   };
+
+  const sortHeaderClassName = isSearchActive
+    ? 'flex items-center text-muted-foreground/55'
+    : 'cursor-pointer hover:text-foreground flex items-center';
 
   return (
     <div className="w-full mx-auto border border-border/50 rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5 relative">
@@ -276,16 +289,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
         <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] bg-muted/30 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/78 select-none">
-          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('name')}>
+          <span className={sortHeaderClassName} onClick={() => handleSort('name')}>
             Name <SortIcon option="name" />
           </span>
-          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('modified')}>
+          <span className={sortHeaderClassName} onClick={() => handleSort('modified')}>
             Modified <SortIcon option="modified" />
           </span>
-          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('type')}>
+          <span className={sortHeaderClassName} onClick={() => handleSort('type')}>
             Type <SortIcon option="type" />
           </span>
-          <span className="cursor-pointer hover:text-foreground flex items-center" onClick={() => handleSort('size')}>
+          <span className={sortHeaderClassName} onClick={() => handleSort('size')}>
             Size <SortIcon option="size" />
           </span>
         </div>
