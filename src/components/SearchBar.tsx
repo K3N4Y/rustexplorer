@@ -79,21 +79,28 @@ export function InputGroupDemo({
     unlistenDoneRef.current = null;
   };
 
+  const teardownActiveSearch = () => {
+    clearFlushTimer();
+    clearSearchListeners();
+    activeRequestRef.current = null;
+  };
+
+  const resetSearchUi = () => {
+    setIsSearching(false);
+    setResultsCount(0);
+    onSearchStateChange(false);
+  };
+
   async function performSearch(searchQuery: string) {
     if (!searchQuery.trim()) {
-      clearFlushTimer();
-      clearSearchListeners();
-      activeRequestRef.current = null;
-      setIsSearching(false);
-      setResultsCount(0);
-      onSearchStateChange(false);
+      teardownActiveSearch();
+      resetSearchUi();
       await onClearSearch();
       return;
     }
 
     try {
-      clearFlushTimer();
-      clearSearchListeners();
+      teardownActiveSearch();
 
       const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       activeRequestRef.current = requestId;
@@ -142,8 +149,7 @@ export function InputGroupDemo({
         onSearchResults([...streamedFiles]);
         setResultsCount(event.payload.total);
         setIsSearching(false);
-        activeRequestRef.current = null;
-        clearSearchListeners();
+        teardownActiveSearch();
       });
 
       await invoke("search_with_ignore", {
@@ -153,11 +159,8 @@ export function InputGroupDemo({
         requestId,
       });
     } catch (error) {
-      clearFlushTimer();
-      activeRequestRef.current = null;
-      setIsSearching(false);
-      onSearchStateChange(false);
-      clearSearchListeners();
+      teardownActiveSearch();
+      resetSearchUi();
       console.error("Search failed:", error);
     }
   }
@@ -169,13 +172,9 @@ export function InputGroupDemo({
 
     if (!search.trim()) {
       if (hadSearchRef.current) {
-        clearFlushTimer();
-        clearSearchListeners();
-        activeRequestRef.current = null;
+        teardownActiveSearch();
         hadSearchRef.current = false;
-        setIsSearching(false);
-        setResultsCount(0);
-        onSearchStateChange(false);
+        resetSearchUi();
         void onClearSearch();
       }
       return;
@@ -200,13 +199,9 @@ export function InputGroupDemo({
       debounceTimerRef.current = null;
     }
     setSearch("");
-    setResultsCount(0);
-    setIsSearching(false);
     hadSearchRef.current = false;
-    onSearchStateChange(false);
-    clearFlushTimer();
-    clearSearchListeners();
-    activeRequestRef.current = null;
+    resetSearchUi();
+    teardownActiveSearch();
   }, [currentPath, onSearchStateChange]);
 
   return (
