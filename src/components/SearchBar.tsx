@@ -1,19 +1,21 @@
-import { Search } from "lucide-react"
+import { LoaderCircle, Search, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useState, KeyboardEvent, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FileItem } from "./file-types";
 import { useSettings } from "../lib/settings-provider";
 
 import {
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group"
+} from "@/components/ui/input-group";
 
 interface InputGroupDemoProps {
   currentPath: string;
   onSearchResults: (files: FileItem[]) => void;
+  onClearSearch: () => Promise<unknown>;
 }
 
 interface SearchResultPayload {
@@ -32,17 +34,23 @@ interface SearchDonePayload {
   total: number;
 }
 
-export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoProps) {
+export function InputGroupDemo({ currentPath, onSearchResults, onClearSearch }: InputGroupDemoProps) {
   const [search, setSearch] = useState("");
   const [resultsCount, setResultsCount] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
   const { searchThreads } = useSettings();
+  const hadSearchRef = useRef(false);
   const activeRequestRef = useRef<string | null>(null);
   const unlistenResultRef = useRef<UnlistenFn | null>(null);
   const unlistenDoneRef = useRef<UnlistenFn | null>(null);
   const flushTimerRef = useRef<number | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
       if (flushTimerRef.current !== null) {
         window.clearTimeout(flushTimerRef.current);
       }
@@ -70,11 +78,12 @@ export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoP
       clearFlushTimer();
       clearSearchListeners();
       activeRequestRef.current = null;
-      onSearchResults([]);
+      setIsSearching(false);
       setResultsCount(0);
+      await onClearSearch();
       return;
     }
-    
+
     try {
       clearFlushTimer();
       clearSearchListeners();
@@ -83,6 +92,7 @@ export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoP
       activeRequestRef.current = requestId;
 
       let streamedFiles: FileItem[] = [];
+      setIsSearching(true);
       setResultsCount(0);
       onSearchResults([]);
 
@@ -123,6 +133,7 @@ export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoP
         clearFlushTimer();
         onSearchResults([...streamedFiles]);
         setResultsCount(event.payload.total);
+        setIsSearching(false);
         activeRequestRef.current = null;
         clearSearchListeners();
       });
@@ -136,29 +147,81 @@ export function InputGroupDemo({ currentPath, onSearchResults }: InputGroupDemoP
     } catch (error) {
       clearFlushTimer();
       activeRequestRef.current = null;
+      setIsSearching(false);
       clearSearchListeners();
       console.error("Search failed:", error);
     }
   }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      void performSearch(search);
+  useEffect(() => {
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
     }
-  };
+
+    if (!search.trim()) {
+      if (hadSearchRef.current) {
+        clearFlushTimer();
+        clearSearchListeners();
+        activeRequestRef.current = null;
+        hadSearchRef.current = false;
+        setIsSearching(false);
+        setResultsCount(0);
+        void onClearSearch();
+      }
+      return;
+    }
+
+    hadSearchRef.current = true;
+    debounceTimerRef.current = window.setTimeout(() => {
+      void performSearch(search);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [search, currentPath, searchThreads]);
+
+  useEffect(() => {
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    setSearch("");
+    setResultsCount(0);
+    setIsSearching(false);
+    hadSearchRef.current = false;
+    clearFlushTimer();
+    clearSearchListeners();
+    activeRequestRef.current = null;
+  }, [currentPath]);
 
   return (
-    <InputGroup className="max-w-xs">
+    <InputGroup className="max-w-sm">
+      <InputGroupAddon>
+        {isSearching ? <LoaderCircle className="animate-spin" /> : <Search />}
+      </InputGroupAddon>
       <InputGroupInput
-        placeholder="Search..."
+        placeholder="Buscar en esta carpeta..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={handleKeyDown}
       />
-      <InputGroupAddon>
-        <Search />
-      </InputGroupAddon>
-      <InputGroupAddon align="inline-end">{resultsCount > 0 ? `${resultsCount}` : '0'}</InputGroupAddon>
+      <InputGroupAddon align="inline-end">{isSearching ? "..." : `${resultsCount}`}</InputGroupAddon>
+      {search && (
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            aria-label="Limpiar búsqueda"
+            onClick={() => {
+              setSearch("");
+            }}
+          >
+            <X />
+          </InputGroupButton>
+        </InputGroupAddon>
+      )}
     </InputGroup>
-  )
+  );
 }

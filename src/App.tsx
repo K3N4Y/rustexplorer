@@ -227,6 +227,7 @@ function App() {
             <InputGroupDemo 
               currentPath={currentPath}
               onSearchResults={(results) => setFiles(results)}
+              onClearSearch={() => navigateToPath(currentPath, { recordHistory: false })}
             />
             <SettingsDialog />
           </div>
