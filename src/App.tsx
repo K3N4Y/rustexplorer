@@ -12,6 +12,8 @@ function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState(rootPath);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function loadFolder(path: string): Promise<FileItem[]> {
     const response = await invoke<Array<{
@@ -32,10 +34,21 @@ function App() {
   }
 
   const navigateToPath = async (path: string) => {
-    const nextFiles = await loadFolder(path);
-    setFiles(nextFiles);
-    setCurrentPath(path);
-    return nextFiles;
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const nextFiles = await loadFolder(path);
+      setFiles(nextFiles);
+      setCurrentPath(path);
+      return nextFiles;
+    } catch (error) {
+      console.error("Error loading folder:", error);
+      setErrorMessage("No se pudo cargar esta carpeta. Intenta de nuevo.");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renameItem = async (item: FileItem, newName: string) => {
@@ -92,9 +105,12 @@ function App() {
             <FileExplorer
               initialFiles={files}
               initialPath={currentPath}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
               onLoadFolder={loadFolder}
               onRenameItem={renameItem}
               onDeleteItem={deleteItem}
+              onRetry={() => navigateToPath(currentPath)}
               onPathChange={(path, nextFiles) => {
                 setCurrentPath(path);
                 setFiles(nextFiles);

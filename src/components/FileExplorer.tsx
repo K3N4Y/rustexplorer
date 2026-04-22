@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  File as FileIcon,
+  Folder as FolderIcon,
+  FolderOpen,
+  LoaderCircle,
+  RefreshCcw,
+} from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
 import { FileContextMenu } from './FileContextMenu';
@@ -11,19 +18,25 @@ import { useSettings } from '../lib/settings-provider';
 interface FileExplorerProps {
   initialFiles: FileItem[];
   initialPath?: string;
+  isLoading?: boolean;
+  errorMessage?: string | null;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
   onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
   onDeleteItem?: (item: FileItem) => Promise<void>;
+  onRetry?: () => Promise<unknown>;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
   initialPath = '/',
+  isLoading = false,
+  errorMessage = null,
   onLoadFolder,
   onPathChange,
   onRenameItem,
   onDeleteItem,
+  onRetry,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
@@ -46,6 +59,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const totalPages = Math.ceil(files.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleFiles = files.slice(startIndex, startIndex + itemsPerPage);
+  const isEmpty = !isLoading && !errorMessage && files.length === 0;
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
@@ -200,7 +214,55 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         <span>Size</span>
       </div>
 
-      {visibleFiles.map((file, index) => {
+      {isLoading && (
+        <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <LoaderCircle className="h-7 w-7 animate-spin text-muted-foreground" aria-hidden="true" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Cargando carpeta...</p>
+            <p className="text-sm text-muted-foreground">Estamos obteniendo los archivos de esta ruta.</p>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && !isLoading && (
+        <div className="flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Ocurrió un problema</p>
+            <p className="text-sm text-muted-foreground">{errorMessage}</p>
+          </div>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={() => {
+                void onRetry();
+              }}
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+              Reintentar
+            </button>
+          )}
+        </div>
+      )}
+
+      {isEmpty && (
+        <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <FolderOpen className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Esta carpeta está vacía</p>
+            <p className="text-sm text-muted-foreground">Cuando tenga archivos o subcarpetas, aparecerán aquí.</p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !errorMessage && visibleFiles.map((file, index) => {
         const folder = isFolder(file);
         const isSelected = selectedIndex === index;
         const isHovered = hoveredIndex === index;
@@ -249,7 +311,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         );
       })}
 
-      {currentPath !== '/' && (
+      {currentPath !== '/' && !isLoading && !errorMessage && !isEmpty && (
         <div className="px-4 py-3 border-t border-border bg-muted/20">
           <button
             onClick={async () => {
@@ -263,7 +325,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      {totalPages > 1 && (
+      {totalPages > 1 && !isLoading && !errorMessage && (
         <div className="px-4 py-3 border-t border-border bg-card flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
