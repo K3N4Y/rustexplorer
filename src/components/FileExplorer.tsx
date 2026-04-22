@@ -280,8 +280,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             }}
           >
             <div
-              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
-                isSelected ? 'bg-accent/80 text-accent-foreground' : isHovered ? 'bg-muted/50' : 'bg-transparent'
+              className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-all duration-150 ${
+                isSelected
+                  ? 'bg-accent/80 text-accent-foreground shadow-[inset_3px_0_0_0_theme(colors.foreground)]'
+                  : isHovered
+                    ? 'bg-muted/50'
+                    : 'bg-transparent'
               }`}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
@@ -294,18 +298,30 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 {folder ? (
                   <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
                 ) : (
-                  <FileIcon className="h-5 w-5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  <FileIcon
+                    className={`h-5 w-5 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  />
                 )}
-                <span className="truncate text-sm font-medium">{file.name}</span>
+                <span className={`truncate text-sm ${isSelected ? 'font-semibold' : 'font-medium'}`}>{file.name}</span>
               </div>
 
-              <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
+              <span className={`text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {formatDate(file.modified)}
+              </span>
 
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  isSelected ? 'bg-foreground/10 text-foreground' : 'bg-secondary text-secondary-foreground'
+                }`}
+              >
                 {folder ? 'Directory' : 'File'}
               </span>
 
-              <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
+              <span className={`text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {formatSize(file.size, folder)}
+              </span>
             </div>
           </FileContextMenu>
         );
