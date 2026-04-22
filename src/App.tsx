@@ -47,6 +47,14 @@ function App() {
     await navigateToPath(currentPath);
   };
 
+  const deleteItem = async (item: FileItem) => {
+    await invoke("delete_file", {
+      target_path: item.path,
+    });
+
+    await navigateToPath(currentPath);
+  };
+
   useEffect(() => {
     navigateToPath(rootPath)
       .catch((error) => {
@@ -86,6 +94,7 @@ function App() {
               initialPath={currentPath}
               onLoadFolder={loadFolder}
               onRenameItem={renameItem}
+              onDeleteItem={deleteItem}
               onPathChange={(path, nextFiles) => {
                 setCurrentPath(path);
                 setFiles(nextFiles);

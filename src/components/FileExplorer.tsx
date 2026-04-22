@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { File as FileIcon, Folder as FolderIcon } from 'lucide-react';
+import { File as FileIcon, Folder as FolderIcon, TriangleAlert } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
 import {
@@ -17,18 +17,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 import { useSettings } from '../lib/settings-provider';
 
-// Props del componente
 interface FileExplorerProps {
   initialFiles: FileItem[];
   initialPath?: string;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
   onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
+  onDeleteItem?: (item: FileItem) => Promise<void>;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
@@ -37,6 +48,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   onLoadFolder,
   onPathChange,
   onRenameItem,
+  onDeleteItem,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
@@ -45,7 +57,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
-  
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
+
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -81,6 +95,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setRenameDialogOpen(true);
   };
 
+  const openDeleteDialog = (file: FileItem) => {
+    setFileToDelete(file);
+    setDeleteDialogOpen(true);
+  };
+
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fileToRename || !newFileName.trim()) return;
@@ -95,15 +114,26 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         await onRenameItem(fileToRename, newFileName.trim());
       }
       setRenameDialogOpen(false);
+      setFileToRename(null);
     } catch (error) {
       console.error('Error renaming item:', error);
-      // Opcional: mostrar un estado de error en el UI del diálogo
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!fileToDelete || !onDeleteItem) return;
+
+    try {
+      await onDeleteItem(fileToDelete);
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
+    } catch (error) {
+      console.error('Error deleting item:', error);
     }
   };
 
   React.useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      // Ignore if typing in an input or textarea
       if (
         document.activeElement?.tagName === 'INPUT' ||
         document.activeElement?.tagName === 'TEXTAREA'
@@ -188,7 +218,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     <div className="w-full mx-auto border border-border rounded-lg overflow-hidden bg-card text-card-foreground shadow-sm">
       <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath} />
 
-      {/* Header */}
       <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 bg-muted/50 text-sm font-semibold text-muted-foreground border-b border-border">
         <span>Name</span>
         <span>Modified</span>
@@ -196,13 +225,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         <span>Size</span>
       </div>
 
-      {/* Files List */}
       {visibleFiles.map((file, index) => {
         const folder = isFolder(file);
         const isSelected = selectedIndex === index;
         const isHovered = hoveredIndex === index;
+
         return (
-          <ContextMenu key={index}>
+          <ContextMenu key={file.path}>
             <ContextMenuTrigger asChild>
               <div
                 className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-4 py-3 border-b border-border/50 items-center cursor-pointer transition-colors duration-150 ${
@@ -212,10 +241,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 onMouseLeave={() => setHoveredIndex(null)}
                 onClick={() => {
                   setSelectedIndex(index);
-                  handleItemClick(file);
+                  void handleItemClick(file);
                 }}
               >
-                {/* Name + Icon */}
                 <div className="flex items-center gap-2 truncate">
                   {folder ? (
                     <FolderIcon className="h-5 w-5 text-amber-500" strokeWidth={1.8} aria-hidden="true" />
@@ -225,26 +253,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   <span className="truncate text-sm font-medium">{file.name}</span>
                 </div>
 
-                {/* Modified */}
                 <span className="text-sm text-muted-foreground">{formatDate(file.modified)}</span>
 
-                {/* Type Badge */}
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
                   {folder ? 'Directory' : 'File'}
                 </span>
 
-                {/* Size */}
                 <span className="text-sm text-muted-foreground">{formatSize(file.size, folder)}</span>
               </div>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-48">
-              <ContextMenuItem onClick={() => handleItemClick(file)}>
-                Abrir
-              </ContextMenuItem>
+              <ContextMenuItem onClick={() => void handleItemClick(file)}>Abrir</ContextMenuItem>
               <ContextMenuItem
                 onClick={() => {
-                  navigator.clipboard.writeText(file.path);
-                  // Podrías añadir un toast aquí para feedback
+                  void navigator.clipboard.writeText(file.path);
                 }}
               >
                 Copiar ruta
@@ -259,15 +281,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
               >
                 Renombrar
               </ContextMenuItem>
-              <ContextMenuItem disabled className="text-destructive">
-                Eliminar (Próximamente)
+              <ContextMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  if (onDeleteItem) {
+                    openDeleteDialog(file);
+                  }
+                }}
+              >
+                Eliminar
               </ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
         );
       })}
 
-      {/* Back Button (if not at root) */}
       {currentPath !== '/' && (
         <div className="px-4 py-3 border-t border-border bg-muted/20">
           <button
@@ -277,12 +305,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             }}
             className="flex items-center gap-1 px-3 py-1.5 text-sm bg-background border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
           >
-            ← Back
+            Back
           </button>
         </div>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="px-4 py-3 border-t border-border bg-card flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
@@ -310,8 +337,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      {/* Rename Dialog */}
-      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+      <Dialog
+        open={renameDialogOpen}
+        onOpenChange={(open: boolean) => {
+          setRenameDialogOpen(open);
+          if (!open) {
+            setFileToRename(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Renombrar {fileToRename?.isDirectory ? 'carpeta' : 'archivo'}</DialogTitle>
@@ -340,6 +374,38 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open: boolean) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setFileToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <TriangleAlert className="h-5 w-5 text-destructive" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              Eliminar {fileToDelete?.isDirectory ? 'carpeta' : 'archivo'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fileToDelete?.isDirectory
+                ? `Se eliminara "${fileToDelete?.name}" y todo su contenido. Esta accion no se puede deshacer.`
+                : `Se eliminara "${fileToDelete?.name}". Esta accion no se puede deshacer.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirm}>
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

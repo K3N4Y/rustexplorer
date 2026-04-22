@@ -26,7 +26,12 @@ struct SearchDoneEvent {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-    .invoke_handler(tauri::generate_handler![search_with_ignore, get_files, rename_file])
+    .invoke_handler(tauri::generate_handler![
+        search_with_ignore,
+        get_files,
+        rename_file,
+        delete_file
+    ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -167,6 +172,23 @@ fn rename_file(source_path: String, target_name: String) -> Result<(), String> {
     }
 
     fs::rename(source, target).map_err(|err| err.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn delete_file(target_path: String) -> Result<(), String> {
+    let target = Path::new(&target_path);
+
+    if !target.exists() {
+        return Err("target does not exist".to_string());
+    }
+
+    let metadata = fs::metadata(target).map_err(|err| err.to_string())?;
+
+    if metadata.is_dir() {
+        fs::remove_dir_all(target).map_err(|err| err.to_string())
+    } else {
+        fs::remove_file(target).map_err(|err| err.to_string())
+    }
 }
 
 fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
