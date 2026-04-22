@@ -108,7 +108,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sidebar-content"
-      className={cn('flex-1 overflow-y-auto px-2 py-2', className)}
+      className={cn('scrollbar-hidden flex-1 overflow-y-auto px-2 py-2', className)}
       {...props}
     />
   );

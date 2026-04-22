@@ -237,7 +237,7 @@ function App() {
             <SettingsDialog />
           </div>
         </header>
-        <main className="w-full flex-1 overflow-auto bg-background">
+        <main className="scrollbar-hidden w-full flex-1 overflow-auto bg-background">
           <div className="mx-auto w-full p-4 max-w-none">
             <FileExplorer
               initialFiles={files}
