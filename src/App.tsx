@@ -1,5 +1,5 @@
 import { InputGroupDemo } from "./components/SearchBar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
 import "./App.css";
 import FileExplorer from "./components/FileExplorer";
 import FileTreeSidebar from "./components/FileTreeSidebar";
+import type { FileItem } from "./components/file-types";
 import { useFileNavigation } from "./hooks/use-file-navigation";
 import { getPathLabel } from "./lib/path-utils";
 import { Button } from "./components/ui/button";
@@ -24,6 +25,8 @@ import { SettingsDialog } from "./components/settings-dialog";
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const {
     canGoBack,
     canGoForward,
@@ -66,6 +69,10 @@ function App() {
   const handleRefresh = async () => {
     await navigateToPath(currentPath, { recordHistory: false });
   };
+
+  useEffect(() => {
+    setSelectedItem(null);
+  }, [currentPath]);
 
   return (
     <SidebarProvider>
@@ -169,6 +176,8 @@ function App() {
               onRenameItem={renameItem}
               onDeleteItem={deleteItem}
               onRetry={() => navigateToPath(currentPath)}
+              onSelectionChange={setSelectedItem}
+              onTogglePreview={() => setPreviewOpen((prev) => !prev)}
               onPathChange={(path, nextFiles) => {
                 setCurrentPath(path);
                 setFiles(nextFiles);

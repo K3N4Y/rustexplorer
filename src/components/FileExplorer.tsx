@@ -33,6 +33,8 @@ interface FileExplorerProps {
   onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
   onDeleteItem?: (item: FileItem) => Promise<void>;
   onRetry?: () => Promise<unknown>;
+  onSelectionChange?: (item: FileItem | null) => void;
+  onTogglePreview?: () => void;
 }
 
 type SortOption = 'name' | 'modified' | 'type' | 'size';
@@ -102,6 +104,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   onRenameItem,
   onDeleteItem,
   onRetry,
+  onSelectionChange,
+  onTogglePreview,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
@@ -161,6 +165,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const visibleFiles = sortedFiles.slice(startIndex, startIndex + itemsPerPage);
   const isEmpty = !isLoading && !errorMessage && sortedFiles.length === 0;
+
+  React.useEffect(() => {
+    onSelectionChange?.(visibleFiles[selectedIndex] ?? null);
+  }, [onSelectionChange, selectedIndex, visibleFiles]);
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
@@ -281,6 +289,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         const parentPath = getParentPath(currentPath);
         if (parentPath !== '/' && parentPath !== currentPath) {
           await navigateToPath(parentPath);
+        }
+      } else if (e.key === ' ') {
+        if (visibleFiles.length > 0) {
+          e.preventDefault();
+          onTogglePreview?.();
         }
       }
     };
