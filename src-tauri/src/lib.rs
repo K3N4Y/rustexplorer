@@ -1,6 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod models;
 
+use base64::Engine as _;
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
@@ -15,6 +16,7 @@ use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
+const MAX_INLINE_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]
 struct SearchResultChunkEvent {
@@ -264,6 +266,26 @@ fn is_text_extension(ext: &str) -> bool {
     )
 }
 
+fn is_image_extension(ext: &str) -> bool {
+    matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "svg")
+}
+
+fn is_audio_extension(ext: &str) -> bool {
+    matches!(ext, "mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac")
+}
+
+fn is_video_extension(ext: &str) -> bool {
+    matches!(ext, "mp4" | "webm" | "mov" | "mkv" | "avi")
+}
+
+fn read_text_preview(target: &Path, preview_limit: usize) -> Result<(String, bool), String> {
+    let bytes = fs::read(target).map_err(|err| err.to_string())?;
+    let truncated = bytes.len() > preview_limit;
+    let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+
+    Ok((content, truncated))
+}
+
 #[tauri::command]
 fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPayload, String> {
     let target = Path::new(&path);
@@ -284,12 +306,14 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
 
     let size_bytes = metadata.len();
     let extension = extension_for_path(target);
+    let extension_ref = extension.as_deref();
     let preview_limit = max_bytes.unwrap_or(DEFAULT_TEXT_PREVIEW_BYTES);
+    let detected = infer::get_from_path(target).ok().flatten();
+    let mime_type = detected.as_ref().map(|kind| kind.mime_type().to_string());
+    let path_value = target.to_string_lossy().to_string();
 
-    if extension.as_deref().is_some_and(is_markdown_extension) {
-        let bytes = fs::read(target).map_err(|err| err.to_string())?;
-        let truncated = bytes.len() > preview_limit;
-        let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+    if extension_ref.is_some_and(is_markdown_extension) {
+        let (content, truncated) = read_text_preview(target, preview_limit)?;
 
         return Ok(PreviewPayload::Markdown {
             content,
@@ -298,10 +322,8 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         });
     }
 
-    if extension.as_deref().is_some_and(is_text_extension) {
-        let bytes = fs::read(target).map_err(|err| err.to_string())?;
-        let truncated = bytes.len() > preview_limit;
-        let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+    if extension_ref.is_some_and(is_text_extension) {
+        let (content, truncated) = read_text_preview(target, preview_limit)?;
 
         return Ok(PreviewPayload::Text {
             content,
@@ -311,8 +333,64 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         });
     }
 
+    if mime_type
+        .as_deref()
+        .is_some_and(|mime| mime.starts_with("image/"))
+        || extension_ref.is_some_and(is_image_extension)
+    {
+        if size_bytes > MAX_INLINE_IMAGE_BYTES {
+            return Ok(PreviewPayload::Binary {
+                mime_type,
+                size_bytes,
+                reason: Some("image too large for inline preview".to_string()),
+            });
+        }
+
+        let bytes = fs::read(target).map_err(|err| err.to_string())?;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+        let resolved_mime = mime_type.unwrap_or_else(|| "image/*".to_string());
+
+        return Ok(PreviewPayload::Image {
+            data_url: format!("data:{};base64,{}", resolved_mime, encoded),
+            mime_type: resolved_mime,
+            size_bytes,
+        });
+    }
+
+    if mime_type.as_deref() == Some("application/pdf") || extension_ref == Some("pdf") {
+        return Ok(PreviewPayload::Pdf {
+            path: path_value,
+            mime_type,
+            size_bytes,
+        });
+    }
+
+    if mime_type
+        .as_deref()
+        .is_some_and(|mime| mime.starts_with("audio/"))
+        || extension_ref.is_some_and(is_audio_extension)
+    {
+        return Ok(PreviewPayload::Audio {
+            path: path_value,
+            mime_type,
+            size_bytes,
+        });
+    }
+
+    if mime_type
+        .as_deref()
+        .is_some_and(|mime| mime.starts_with("video/"))
+        || extension_ref.is_some_and(is_video_extension)
+    {
+        return Ok(PreviewPayload::Video {
+            path: path_value,
+            mime_type,
+            size_bytes,
+        });
+    }
+
     Ok(PreviewPayload::Binary {
-        mime_type: None,
+        mime_type,
         size_bytes,
         reason: Some("unsupported file type".to_string()),
     })
@@ -435,6 +513,109 @@ mod tests {
         match payload {
             PreviewPayload::Binary { .. } => {}
             other => panic!("expected binary payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_marks_large_text_as_truncated() {
+        let temp_dir = create_temp_dir("rustexplorer-text-limit");
+        let file_path = temp_dir.join("long.rs");
+        fs::write(&file_path, "a".repeat(2048)).unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(128)).unwrap();
+
+        match payload {
+            PreviewPayload::Text {
+                truncated, content, ..
+            } => {
+                assert!(truncated);
+                assert_eq!(content.len(), 128);
+            }
+            other => panic!("expected text payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_pdf_payload_for_pdf_extension() {
+        let temp_dir = create_temp_dir("rustexplorer-pdf-preview");
+        let file_path = temp_dir.join("sample.pdf");
+        fs::write(&file_path, b"%PDF-1.4\n%").unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Pdf { path, .. } => assert!(path.ends_with("sample.pdf")),
+            other => panic!("expected pdf payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_audio_payload_for_audio_extension() {
+        let temp_dir = create_temp_dir("rustexplorer-audio-preview");
+        let file_path = temp_dir.join("tone.mp3");
+        fs::write(&file_path, b"ID3mock").unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Audio { path, .. } => assert!(path.ends_with("tone.mp3")),
+            other => panic!("expected audio payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_video_payload_for_video_extension() {
+        let temp_dir = create_temp_dir("rustexplorer-video-preview");
+        let file_path = temp_dir.join("clip.mp4");
+        fs::write(&file_path, b"\x00\x00\x00\x18ftypmp42").unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Video { path, .. } => assert!(path.ends_with("clip.mp4")),
+            other => panic!("expected video payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_image_payload_for_png_file() {
+        let temp_dir = create_temp_dir("rustexplorer-image-preview");
+        let file_path = temp_dir.join("pixel.png");
+        let tiny_png: [u8; 67] = [
+            137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0,
+            0, 1, 8, 2, 0, 0, 0, 144, 119, 83, 222, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156,
+            99, 96, 0, 0, 0, 2, 0, 1, 229, 39, 212, 162, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+            96, 130,
+        ];
+        fs::write(&file_path, tiny_png).unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Image {
+                data_url,
+                mime_type,
+                ..
+            } => {
+                assert!(data_url.starts_with("data:image/"));
+                assert!(mime_type.starts_with("image/"));
+            }
+            other => panic!("expected image payload, got {:?}", other),
         }
 
         fs::remove_file(&file_path).unwrap();
