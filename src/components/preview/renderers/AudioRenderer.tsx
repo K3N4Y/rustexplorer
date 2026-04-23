@@ -4,5 +4,6 @@ import type { PreviewPayload } from "../types";
 type AudioPayload = Extract<PreviewPayload, { type: "audio" }>;
 
 export default function AudioRenderer({ payload }: { payload: AudioPayload }) {
-  return <audio controls className="w-full" src={convertFileSrc(payload.path)} />;
+  const normalizedPath = payload.path.replace(/\\/g, "/");
+  return <audio controls className="w-full" src={convertFileSrc(normalizedPath)} />;
 }

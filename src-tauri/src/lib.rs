@@ -16,7 +16,7 @@ use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
-const MAX_INLINE_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_INLINE_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]
 struct SearchResultChunkEvent {
@@ -267,15 +267,36 @@ fn is_text_extension(ext: &str) -> bool {
 }
 
 fn is_image_extension(ext: &str) -> bool {
-    matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "svg")
+    matches!(
+        ext,
+        "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "webp"
+            | "bmp"
+            | "svg"
+            | "avif"
+            | "ico"
+            | "tif"
+            | "tiff"
+            | "heic"
+            | "heif"
+    )
 }
 
 fn is_audio_extension(ext: &str) -> bool {
-    matches!(ext, "mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac")
+    matches!(
+        ext,
+        "mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac" | "opus" | "weba" | "wma"
+    )
 }
 
 fn is_video_extension(ext: &str) -> bool {
-    matches!(ext, "mp4" | "webm" | "mov" | "mkv" | "avi")
+    matches!(
+        ext,
+        "mp4" | "webm" | "mov" | "mkv" | "avi" | "m4v" | "wmv" | "flv" | "3gp" | "ts"
+    )
 }
 
 fn read_text_preview(target: &Path, preview_limit: usize) -> Result<(String, bool), String> {
