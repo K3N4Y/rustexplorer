@@ -70,7 +70,7 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByTitle("PDF preview")).toBeInTheDocument();
+    expect(screen.getByLabelText("PDF preview")).toBeInTheDocument();
   });
 
   it("routes audio payloads", () => {

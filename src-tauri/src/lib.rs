@@ -285,6 +285,23 @@ fn is_image_extension(ext: &str) -> bool {
     )
 }
 
+fn image_mime_type_from_extension(ext: &str) -> Option<&'static str> {
+    match ext {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "bmp" => Some("image/bmp"),
+        "svg" => Some("image/svg+xml"),
+        "avif" => Some("image/avif"),
+        "ico" => Some("image/x-icon"),
+        "tif" | "tiff" => Some("image/tiff"),
+        "heic" => Some("image/heic"),
+        "heif" => Some("image/heif"),
+        _ => None,
+    }
+}
+
 fn is_audio_extension(ext: &str) -> bool {
     matches!(
         ext,
@@ -369,7 +386,12 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
 
         let bytes = fs::read(target).map_err(|err| err.to_string())?;
         let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-        let resolved_mime = mime_type.unwrap_or_else(|| "image/*".to_string());
+        let resolved_mime = mime_type.unwrap_or_else(|| {
+            extension_ref
+                .and_then(image_mime_type_from_extension)
+                .unwrap_or("image/*")
+                .to_string()
+        });
 
         return Ok(PreviewPayload::Image {
             data_url: format!("data:{};base64,{}", resolved_mime, encoded),
@@ -635,6 +657,34 @@ mod tests {
             } => {
                 assert!(data_url.starts_with("data:image/"));
                 assert!(mime_type.starts_with("image/"));
+            }
+            other => panic!("expected image payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_specific_mime_for_svg_images() {
+        let temp_dir = create_temp_dir("rustexplorer-svg-preview");
+        let file_path = temp_dir.join("vector.svg");
+        fs::write(
+            &file_path,
+            br#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>"#,
+        )
+        .unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Image {
+                data_url,
+                mime_type,
+                ..
+            } => {
+                assert_eq!(mime_type, "image/svg+xml");
+                assert!(data_url.starts_with("data:image/svg+xml;base64,"));
             }
             other => panic!("expected image payload, got {:?}", other),
         }
