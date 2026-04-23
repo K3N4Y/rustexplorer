@@ -21,6 +21,8 @@ import {
   SidebarTrigger,
 } from "./components/ui/sidebar";
 import { SettingsDialog } from "./components/settings-dialog";
+import PreviewPanel from "./components/preview/PreviewPanel";
+import { usePreview } from "./hooks/usePreview";
 
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
@@ -73,6 +75,15 @@ function App() {
   useEffect(() => {
     setSelectedItem(null);
   }, [currentPath]);
+
+  const {
+    payload,
+    isLoading: isPreviewLoading,
+    error: previewError,
+  } = usePreview({
+    selectedItem,
+    previewOpen,
+  });
 
   return (
     <SidebarProvider>
@@ -165,23 +176,33 @@ function App() {
           </div>
         </header>
         <main className="scrollbar-hidden w-full flex-1 overflow-auto bg-background">
-          <div className="mx-auto w-full p-4 max-w-none">
-            <FileExplorer
-              initialFiles={files}
-              initialPath={currentPath}
-              isLoading={isLoading}
-              isSearchActive={isSearchActive}
-              errorMessage={errorMessage}
-              onLoadFolder={loadFolder}
-              onRenameItem={renameItem}
-              onDeleteItem={deleteItem}
-              onRetry={() => navigateToPath(currentPath)}
-              onSelectionChange={setSelectedItem}
-              onTogglePreview={() => setPreviewOpen((prev) => !prev)}
-              onPathChange={(path, nextFiles) => {
-                setCurrentPath(path);
-                setFiles(nextFiles);
-              }}
+          <div className="flex h-full min-h-0">
+            <div className="min-w-0 flex-1 p-4">
+              <FileExplorer
+                initialFiles={files}
+                initialPath={currentPath}
+                isLoading={isLoading}
+                isSearchActive={isSearchActive}
+                errorMessage={errorMessage}
+                onLoadFolder={loadFolder}
+                onRenameItem={renameItem}
+                onDeleteItem={deleteItem}
+                onRetry={() => navigateToPath(currentPath)}
+                onSelectionChange={setSelectedItem}
+                onTogglePreview={() => setPreviewOpen((prev) => !prev)}
+                onPathChange={(path, nextFiles) => {
+                  setCurrentPath(path);
+                  setFiles(nextFiles);
+                }}
+              />
+            </div>
+
+            <PreviewPanel
+              open={previewOpen}
+              selectedName={selectedItem?.name}
+              payload={payload}
+              isLoading={isPreviewLoading}
+              error={previewError}
             />
           </div>
         </main>

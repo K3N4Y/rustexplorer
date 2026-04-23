@@ -9,16 +9,18 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 describe("usePreview", () => {
+  const selectedItem = {
+    name: "notes.txt",
+    path: "C:/notes.txt",
+    size: 12,
+    modified: null,
+    isDirectory: false,
+  };
+
   it("does not fetch while preview is closed", () => {
     renderHook(() =>
       usePreview({
-        selectedItem: {
-          name: "notes.txt",
-          path: "C:/notes.txt",
-          size: 12,
-          modified: null,
-          isDirectory: false,
-        },
+        selectedItem,
         previewOpen: false,
       })
     );
@@ -31,24 +33,26 @@ describe("usePreview", () => {
       type: "text",
       content: "hello",
       truncated: false,
-      sizeBytes: 5,
+      size_bytes: 5,
     });
 
     const { result } = renderHook(() =>
       usePreview({
-        selectedItem: {
-          name: "notes.txt",
-          path: "C:/notes.txt",
-          size: 12,
-          modified: null,
-          isDirectory: false,
-        },
+        selectedItem,
         previewOpen: true,
       })
     );
 
     await waitFor(() => {
       expect(result.current.payload?.type).toBe("text");
+    });
+
+    expect(result.current.payload).toEqual({
+      type: "text",
+      content: "hello",
+      truncated: false,
+      extension: undefined,
+      sizeBytes: 5,
     });
 
     expect(invokeMock).toHaveBeenCalledWith("read_file_preview", {
