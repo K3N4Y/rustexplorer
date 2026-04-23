@@ -125,6 +125,7 @@ describe("PreviewContent", () => {
       />
     );
 
+    expect(screen.getByText("Tamaño: 99 bytes")).toBeInTheDocument();
     expect(screen.getByText(/unsupported/i)).toBeInTheDocument();
   });
 

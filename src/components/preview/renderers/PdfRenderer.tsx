@@ -176,7 +176,9 @@ export default function PdfRenderer({ payload }: Props) {
 
       <div
         ref={scrollContainerRef}
+        aria-label="PDF preview"
         data-testid="pdf-viewport"
+        role="region"
         className="flex flex-1 items-start justify-center overflow-auto bg-[var(--bg-secondary)] p-4"
       >
         {renderError ? (
