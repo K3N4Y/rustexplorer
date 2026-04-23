@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { FileText, ExternalLink } from 'lucide-react';
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { PreviewPayload } from '../types';
 import { PdfPageCanvas } from './PdfPageCanvas';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -12,12 +14,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 interface Props {
-  payload: { type: 'pdf'; path: string; size_bytes: number };
+  payload: Extract<PreviewPayload, { type: 'pdf' }>;
 }
 
 const PAGE_GAP = 8;
 
-export function PdfRenderer({ payload }: Props) {
+export default function PdfRenderer({ payload }: Props) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [pageWidth, setPageWidth] = useState<number>(0);
@@ -95,6 +97,8 @@ export function PdfRenderer({ payload }: Props) {
 
     syncWidth(container.clientWidth);
 
+    if (typeof ResizeObserver === 'undefined') return;
+
     const observer = new ResizeObserver(([entry]) => {
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
@@ -139,7 +143,11 @@ export function PdfRenderer({ payload }: Props) {
   }, [pageWidth, virtualPageCount]);
 
   const openExternally = () => {
-    void invoke('open_path', { path: payload.path }).catch((e) => {
+    const openablePath = /^[a-zA-Z]:\\/.test(payload.path)
+      ? payload.path.replace(/\\/g, '/')
+      : payload.path;
+
+    void openPath(openablePath).catch((e) => {
       console.error('Failed to open PDF externally:', e);
     });
   };

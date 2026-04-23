@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { RenderTask } from 'pdfjs-dist/types/src/display/api';
+
+type PdfRenderTask = {
+  cancel: () => void;
+  promise: Promise<unknown>;
+};
 
 interface Props {
   pdfDocument: PDFDocumentProxy;
@@ -10,7 +14,7 @@ interface Props {
 
 export function PdfPageCanvas({ pdfDocument, pageNumber, width }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const renderTaskRef = useRef<RenderTask | null>(null);
+  const renderTaskRef = useRef<PdfRenderTask | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,7 +48,7 @@ export function PdfPageCanvas({ pdfDocument, pageNumber, width }: Props) {
           renderTaskRef.current = null;
         }
 
-        const task = page.render({ canvasContext: context, viewport, canvas });
+        const task = page.render({ canvasContext: context, viewport });
         renderTaskRef.current = task;
 
         await task.promise;
