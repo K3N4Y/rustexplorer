@@ -14,6 +14,7 @@ use std::{
 use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
+const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
 
 #[derive(Serialize, Clone)]
 struct SearchResultChunkEvent {
@@ -27,16 +28,64 @@ struct SearchDoneEvent {
     total: usize,
 }
 
+#[derive(Serialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum PreviewPayload {
+    Text {
+        content: String,
+        extension: Option<String>,
+        truncated: bool,
+        size_bytes: u64,
+    },
+    Markdown {
+        content: String,
+        truncated: bool,
+        size_bytes: u64,
+    },
+    Image {
+        data_url: String,
+        mime_type: String,
+        size_bytes: u64,
+    },
+    Pdf {
+        path: String,
+        mime_type: Option<String>,
+        size_bytes: u64,
+    },
+    Video {
+        path: String,
+        mime_type: Option<String>,
+        size_bytes: u64,
+    },
+    Audio {
+        path: String,
+        mime_type: Option<String>,
+        size_bytes: u64,
+    },
+    Directory {
+        entry_count: Option<usize>,
+    },
+    Binary {
+        mime_type: Option<String>,
+        size_bytes: u64,
+        reason: Option<String>,
+    },
+    Error {
+        message: String,
+    },
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-    .invoke_handler(tauri::generate_handler![
-        search_with_ignore,
-        get_files,
-        rename_file,
-        delete_file
-    ])
+        .invoke_handler(tauri::generate_handler![
+            search_with_ignore,
+            get_files,
+            rename_file,
+            delete_file,
+            read_file_preview
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -186,6 +235,89 @@ fn delete_file(target_path: String) -> Result<(), String> {
     }
 }
 
+fn extension_for_path(path: &Path) -> Option<String> {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+}
+
+fn is_markdown_extension(ext: &str) -> bool {
+    matches!(ext, "md" | "markdown")
+}
+
+fn is_text_extension(ext: &str) -> bool {
+    matches!(
+        ext,
+        "txt"
+            | "rs"
+            | "ts"
+            | "tsx"
+            | "js"
+            | "jsx"
+            | "json"
+            | "css"
+            | "html"
+            | "toml"
+            | "yaml"
+            | "yml"
+            | "csv"
+    )
+}
+
+#[tauri::command]
+fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPayload, String> {
+    let target = Path::new(&path);
+
+    if !target.exists() {
+        return Err("target does not exist".to_string());
+    }
+
+    let metadata = fs::metadata(target).map_err(|err| err.to_string())?;
+
+    if metadata.is_dir() {
+        let entry_count = fs::read_dir(target)
+            .ok()
+            .map(|entries| entries.filter_map(Result::ok).count());
+
+        return Ok(PreviewPayload::Directory { entry_count });
+    }
+
+    let size_bytes = metadata.len();
+    let extension = extension_for_path(target);
+    let preview_limit = max_bytes.unwrap_or(DEFAULT_TEXT_PREVIEW_BYTES);
+
+    if extension.as_deref().is_some_and(is_markdown_extension) {
+        let bytes = fs::read(target).map_err(|err| err.to_string())?;
+        let truncated = bytes.len() > preview_limit;
+        let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+
+        return Ok(PreviewPayload::Markdown {
+            content,
+            truncated,
+            size_bytes,
+        });
+    }
+
+    if extension.as_deref().is_some_and(is_text_extension) {
+        let bytes = fs::read(target).map_err(|err| err.to_string())?;
+        let truncated = bytes.len() > preview_limit;
+        let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+
+        return Ok(PreviewPayload::Text {
+            content,
+            extension,
+            truncated,
+            size_bytes,
+        });
+    }
+
+    Ok(PreviewPayload::Binary {
+        mime_type: None,
+        size_bytes,
+        reason: Some("unsupported file type".to_string()),
+    })
+}
+
 fn file_detail_from_parts(name: String, path: PathBuf, metadata: &fs::Metadata) -> FileDetailDTO {
     let modified = metadata
         .modified()
@@ -226,10 +358,19 @@ fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
 mod tests {
     use super::*;
 
+    fn create_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{}-{}-{}", prefix, std::process::id(), nanos));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     #[test]
     fn file_detail_from_parts_maps_metadata_into_dto() {
-        let temp_dir = std::env::temp_dir().join(format!("rustexplorer-test-{}", std::process::id()));
-        fs::create_dir_all(&temp_dir).unwrap();
+        let temp_dir = create_temp_dir("rustexplorer-test");
 
         let file_path = temp_dir.join("sample.txt");
         fs::write(&file_path, b"hello").unwrap();
@@ -244,6 +385,59 @@ mod tests {
         assert!(detail.modified.is_some());
 
         fs::remove_file(&detail.path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_text_for_small_text_file() {
+        let temp_dir = create_temp_dir("rustexplorer-preview");
+        let file_path = temp_dir.join("notes.txt");
+        fs::write(&file_path, b"hello preview").unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Text {
+                content, truncated, ..
+            } => {
+                assert_eq!(content, "hello preview");
+                assert!(!truncated);
+            }
+            other => panic!("expected text payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_directory_for_folder() {
+        let temp_dir = create_temp_dir("rustexplorer-dir-preview");
+
+        let payload = read_file_preview(temp_dir.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Directory { .. } => {}
+            other => panic!("expected directory payload, got {:?}", other),
+        }
+
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_file_preview_returns_binary_for_unknown_extension() {
+        let temp_dir = create_temp_dir("rustexplorer-bin-preview");
+        let file_path = temp_dir.join("blob.bin");
+        fs::write(&file_path, [0_u8, 159, 255, 0, 88]).unwrap();
+
+        let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(1024)).unwrap();
+
+        match payload {
+            PreviewPayload::Binary { .. } => {}
+            other => panic!("expected binary payload, got {:?}", other),
+        }
+
+        fs::remove_file(&file_path).unwrap();
         fs::remove_dir(&temp_dir).unwrap();
     }
 }
