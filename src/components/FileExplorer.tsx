@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { openPath } from '@tauri-apps/plugin-opener';
 import {
   AlertCircle,
@@ -49,8 +49,6 @@ interface FileItemShellProps {
   onRename?: (item: FileItem) => void;
   onDelete?: (item: FileItem) => void;
   onSelect: (index: number) => void;
-  onHoverStart: (index: number) => void;
-  onHoverEnd: () => void;
 }
 
 const FileItemShell: React.FC<FileItemShellProps> = ({
@@ -62,8 +60,6 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
   onRename,
   onDelete,
   onSelect,
-  onHoverStart,
-  onHoverEnd,
 }) => (
   <FileContextMenu
     file={file}
@@ -77,8 +73,6 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
   >
     <div
       className={className}
-      onMouseEnter={() => onHoverStart(index)}
-      onMouseLeave={onHoverEnd}
       onContextMenu={() => onSelect(index)}
       onClick={() => {
         onSelect(index);
@@ -109,7 +103,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
@@ -130,40 +123,47 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setSelectedIndex(0);
   }, [initialFiles, currentPath, sortBy, sortOrder]);
 
-  const sortedFiles = isSearchActive
-    ? files
-    : [...files].sort((a, b) => {
-        if (a.isDirectory !== b.isDirectory) {
-          return a.isDirectory ? -1 : 1;
-        }
+  const sortedFiles = useMemo(() => {
+    if (isSearchActive) {
+      return files;
+    }
 
-        let comparison = 0;
-        switch (sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'size':
-            comparison = a.size - b.size;
-            break;
-          case 'modified': {
-            const timeA = a.modified ? new Date(a.modified).getTime() : 0;
-            const timeB = b.modified ? new Date(b.modified).getTime() : 0;
-            comparison = timeA - timeB;
-            break;
-          }
-          case 'type': {
-            const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
-            const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
-            comparison = extA.localeCompare(extB);
-            break;
-          }
+    return [...files].sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'size':
+          comparison = a.size - b.size;
+          break;
+        case 'modified': {
+          const timeA = a.modified ? new Date(a.modified).getTime() : 0;
+          const timeB = b.modified ? new Date(b.modified).getTime() : 0;
+          comparison = timeA - timeB;
+          break;
         }
-        return sortOrder === 'asc' ? comparison : -comparison;
-      });
+        case 'type': {
+          const extA = a.name.includes('.') ? a.name.split('.').pop() || '' : '';
+          const extB = b.name.includes('.') ? b.name.split('.').pop() || '' : '';
+          comparison = extA.localeCompare(extB);
+          break;
+        }
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [files, isSearchActive, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const visibleFiles = sortedFiles.slice(startIndex, startIndex + itemsPerPage);
+  const visibleFiles = useMemo(
+    () => sortedFiles.slice(startIndex, startIndex + itemsPerPage),
+    [itemsPerPage, sortedFiles, startIndex],
+  );
   const isEmpty = !isLoading && !errorMessage && sortedFiles.length === 0;
 
   React.useEffect(() => {
@@ -215,14 +215,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const handleSelect = (index: number) => {
     setSelectedIndex(index);
-  };
-
-  const handleHoverStart = (index: number) => {
-    setHoveredIndex(index);
-  };
-
-  const handleHoverEnd = () => {
-    setHoveredIndex(null);
   };
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
@@ -345,7 +337,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const sortHeaderClassName = isSearchActive
     ? 'flex items-center text-muted-foreground/55'
-    : 'cursor-pointer hover:text-foreground flex items-center';
+    : 'flex items-center cursor-pointer rounded-sm transition-colors duration-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35';
 
   const renderFileIcon = (file: FileItem, selected: boolean, size: 'sm' | 'lg') => {
     const appearance = getFileAppearance(file);
@@ -401,7 +393,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <div className="flex items-center gap-1 rounded-md border border-border bg-muted/20 p-0.5 shadow-sm">
             <button
               onClick={() => setViewMode('list')}
-              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all text-muted-foreground hover:text-foreground ${
+              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors duration-100 text-muted-foreground hover:text-foreground ${
                 viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'hover:bg-muted/60'
               }`}
               title="View as List"
@@ -410,7 +402,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-all text-muted-foreground hover:text-foreground ${
+              className={`flex h-7 w-7 items-center justify-center rounded-sm transition-colors duration-100 text-muted-foreground hover:text-foreground ${
                 viewMode === 'grid' ? 'bg-background shadow-sm text-foreground' : 'hover:bg-muted/60'
               }`}
               title="View as Grid"
@@ -492,7 +484,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             {visibleFiles.map((file, index) => {
               const folder = isFolder(file);
               const isSelected = selectedIndex === index;
-              const isHovered = hoveredIndex === index;
               const appearance = getFileAppearance(file);
 
               return (
@@ -504,14 +495,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onRename={onRenameItem ? openRenameDialog : undefined}
                   onDelete={onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
-                  onHoverStart={handleHoverStart}
-                  onHoverEnd={handleHoverEnd}
-                  className={`grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-all duration-150 ${
+                  className={`group/file-row grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border/40 items-center cursor-pointer transition-colors duration-100 focus-within:bg-muted/45 hover:bg-muted/45 ${
                     isSelected
-                      ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)]'
-                      : isHovered
-                        ? 'bg-muted/40'
-                        : 'bg-transparent'
+                      ? 'bg-primary/5 text-foreground shadow-[inset_3px_0_0_0_theme(colors.primary)] hover:bg-primary/5'
+                      : 'bg-transparent'
                   }`}
                 >
                   <div className="flex items-center gap-3 truncate">
@@ -549,7 +536,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             {visibleFiles.map((file, index) => {
               const folder = isFolder(file);
               const isSelected = selectedIndex === index;
-              const isHovered = hoveredIndex === index;
               const appearance = getFileAppearance(file);
 
               return (
@@ -561,14 +547,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onRename={onRenameItem ? openRenameDialog : undefined}
                   onDelete={onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
-                  onHoverStart={handleHoverStart}
-                  onHoverEnd={handleHoverEnd}
-                  className={`flex flex-col items-center justify-center p-4 rounded-[14px] border transition-all cursor-pointer ${
+                  className={`group/file-tile flex flex-col items-center justify-center p-4 rounded-[14px] border transition-[background-color,border-color,box-shadow] duration-100 cursor-pointer focus-within:bg-muted/70 hover:bg-muted/70 ${
                     isSelected
-                      ? 'bg-primary/10 border-primary/30 shadow-sm ring-1 ring-primary/20'
-                      : isHovered
-                        ? 'bg-muted/80 border-border/80'
-                        : 'bg-card border-transparent hover:border-border/50'
+                      ? 'bg-primary/10 border-primary/30 shadow-sm ring-1 ring-primary/20 hover:bg-primary/10 hover:border-primary/30'
+                      : 'bg-card border-transparent hover:border-border/60'
                   }`}
                 >
                   <div className="mb-3.5 relative">

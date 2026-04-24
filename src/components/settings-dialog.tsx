@@ -20,7 +20,7 @@ export function SettingsDialog() {
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen(true)}
-        className="h-9 w-9 rounded-full transition-transform hover:rotate-12 hover:bg-muted"
+        className="h-9 w-9 rounded-full transition-colors duration-100 hover:bg-muted"
         aria-label="Abrir configuración"
       >
         <SettingsIcon className="h-4 w-4" strokeWidth={2.5} />
