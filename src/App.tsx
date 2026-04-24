@@ -85,8 +85,12 @@ function App() {
     previewOpen,
   });
 
+  const handleSelectionChange = (item: FileItem | null) => {
+    setSelectedItem(item);
+  };
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <Sidebar>
         <FileTreeSidebar
           rootPath={rootPath}
@@ -175,9 +179,15 @@ function App() {
             <SettingsDialog />
           </div>
         </header>
-        <main className="scrollbar-hidden w-full flex-1 overflow-auto bg-background">
+        <main
+          data-testid="app-content-frame"
+          className="w-full flex-1 overflow-hidden bg-background"
+        >
           <div className="flex h-full min-h-0">
-            <div className="min-w-0 flex-1 p-4">
+            <div
+              data-testid="file-list-scroll-region"
+              className="scrollbar-hidden min-w-0 flex-1 overflow-auto p-4"
+            >
               <FileExplorer
                 initialFiles={files}
                 initialPath={currentPath}
@@ -188,7 +198,7 @@ function App() {
                 onRenameItem={renameItem}
                 onDeleteItem={deleteItem}
                 onRetry={() => navigateToPath(currentPath)}
-                onSelectionChange={setSelectedItem}
+                onSelectionChange={handleSelectionChange}
                 onTogglePreview={() => setPreviewOpen((prev) => !prev)}
                 onPathChange={(path, nextFiles) => {
                   setCurrentPath(path);

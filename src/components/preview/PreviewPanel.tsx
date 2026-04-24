@@ -29,7 +29,10 @@ export default function PreviewPanel({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div
+        data-testid="preview-content-area"
+        className="scrollbar-hidden h-full min-h-0 flex-1 overflow-auto p-4"
+      >
         {isLoading ? <p>Cargando preview...</p> : null}
         {!isLoading && error ? <p>{error}</p> : null}
         {!isLoading && !error && !payload ? (

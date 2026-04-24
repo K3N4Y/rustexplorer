@@ -30,7 +30,8 @@ function normalizePreviewPayload(payload: unknown): PreviewPayload {
     case "image":
       return {
         type: "image",
-        dataUrl: String(value.dataUrl ?? value.data_url ?? ""),
+        path: (value.path as string | undefined) ?? undefined,
+        dataUrl: (value.dataUrl as string | undefined) ?? (value.data_url as string | undefined),
         mimeType: String(value.mimeType ?? value.mime_type ?? "image/*"),
         sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
       };

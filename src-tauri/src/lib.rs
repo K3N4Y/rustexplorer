@@ -1,7 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod models;
 
-use base64::Engine as _;
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
@@ -16,7 +15,6 @@ use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
-const MAX_INLINE_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 
 #[derive(Serialize, Clone)]
 struct SearchResultChunkEvent {
@@ -45,7 +43,7 @@ enum PreviewPayload {
         size_bytes: u64,
     },
     Image {
-        data_url: String,
+        path: String,
         mime_type: String,
         size_bytes: u64,
     },
@@ -376,16 +374,6 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         .is_some_and(|mime| mime.starts_with("image/"))
         || extension_ref.is_some_and(is_image_extension)
     {
-        if size_bytes > MAX_INLINE_IMAGE_BYTES {
-            return Ok(PreviewPayload::Binary {
-                mime_type,
-                size_bytes,
-                reason: Some("image too large for inline preview".to_string()),
-            });
-        }
-
-        let bytes = fs::read(target).map_err(|err| err.to_string())?;
-        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
         let resolved_mime = mime_type.unwrap_or_else(|| {
             extension_ref
                 .and_then(image_mime_type_from_extension)
@@ -394,7 +382,7 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         });
 
         return Ok(PreviewPayload::Image {
-            data_url: format!("data:{};base64,{}", resolved_mime, encoded),
+            path: path_value,
             mime_type: resolved_mime,
             size_bytes,
         });
@@ -651,11 +639,11 @@ mod tests {
 
         match payload {
             PreviewPayload::Image {
-                data_url,
+                path,
                 mime_type,
                 ..
             } => {
-                assert!(data_url.starts_with("data:image/"));
+                assert!(path.ends_with("pixel.png"));
                 assert!(mime_type.starts_with("image/"));
             }
             other => panic!("expected image payload, got {:?}", other),
@@ -679,12 +667,12 @@ mod tests {
 
         match payload {
             PreviewPayload::Image {
-                data_url,
+                path,
                 mime_type,
                 ..
             } => {
                 assert_eq!(mime_type, "image/svg+xml");
-                assert!(data_url.starts_with("data:image/svg+xml;base64,"));
+                assert!(path.ends_with("vector.svg"));
             }
             other => panic!("expected image payload, got {:?}", other),
         }

@@ -1,6 +1,7 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import * as pdfjsLib from "pdfjs-dist";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import PdfRenderer from "./PdfRenderer";
 
 vi.mock("pdfjs-dist", () => ({
@@ -41,12 +42,12 @@ describe("PdfRenderer", () => {
       destroy: vi.fn(),
     } as never);
 
-    render(
-      <PdfRenderer payload={{ type: "pdf", path: "C:/docs/report.pdf", sizeBytes: 1024 }} />
-    );
+    render(<PdfRenderer payload={{ type: "pdf", path: "C:\\docs\\report.pdf", sizeBytes: 1024 }} />);
 
     await waitFor(() => {
       expect(pdfjsLib.getDocument).toHaveBeenCalledWith("asset://C:/docs/report.pdf");
     });
+    expect(convertFileSrc).toHaveBeenCalledWith("C:/docs/report.pdf");
+    expect(screen.getByTestId("pdf-viewport")).toHaveClass("scrollbar-hidden");
   });
 });

@@ -34,7 +34,8 @@ export default function PdfRenderer({ payload }: Props) {
 
   // Load PDF document
   useEffect(() => {
-    const fileUrl = convertFileSrc(payload.path);
+    const normalizedPath = payload.path.replace(/\\/g, '/');
+    const fileUrl = convertFileSrc(normalizedPath);
     let cancelled = false;
 
     setLoading(true);
@@ -143,9 +144,7 @@ export default function PdfRenderer({ payload }: Props) {
   }, [pageWidth, virtualPageCount]);
 
   const openExternally = () => {
-    const openablePath = /^[a-zA-Z]:\\/.test(payload.path)
-      ? payload.path.replace(/\\/g, '/')
-      : payload.path;
+    const openablePath = payload.path.replace(/\\/g, '/');
 
     void openPath(openablePath).catch((e) => {
       console.error('Failed to open PDF externally:', e);
@@ -179,7 +178,7 @@ export default function PdfRenderer({ payload }: Props) {
         aria-label="PDF preview"
         data-testid="pdf-viewport"
         role="region"
-        className="flex flex-1 items-start justify-center overflow-auto bg-[var(--bg-secondary)] p-4"
+        className="scrollbar-hidden flex flex-1 items-start justify-center overflow-auto bg-[var(--bg-secondary)] p-4"
       >
         {renderError ? (
           <div className="flex max-w-sm flex-col items-center gap-2 text-center">

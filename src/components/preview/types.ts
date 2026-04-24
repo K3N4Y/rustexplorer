@@ -14,7 +14,8 @@ export type PreviewPayload =
     }
   | {
       type: "image";
-      dataUrl: string;
+      path?: string;
+      dataUrl?: string;
       mimeType: string;
       sizeBytes: number;
     }

@@ -49,14 +49,14 @@ describe("PreviewContent", () => {
       <PreviewContent
         payload={{
           type: "image",
-          dataUrl: "data:image/png;base64,AA==",
+          path: "C:\\docs\\photo.png",
           mimeType: "image/png",
           sizeBytes: 2,
         }}
       />
     );
 
-    expect(screen.getByAltText("Preview")).toBeInTheDocument();
+    expect(screen.getByAltText("Preview")).toHaveAttribute("src", "asset://C:/docs/photo.png");
   });
 
   it("routes pdf payloads", () => {
