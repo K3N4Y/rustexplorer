@@ -13,6 +13,8 @@ type FileExplorerMockProps = {
   onActivatePane?: (paneId: PaneId) => void;
   onSelectionChange?: (item: FileItem | null) => void;
   onTogglePreview?: () => void;
+  onCopyToInactivePane?: (item: FileItem) => void;
+  onMoveToInactivePane?: (item: FileItem) => void;
 };
 
 const desktopRoot = "C:\\Users\\kenay\\OneDrive\\Desktop";
@@ -129,6 +131,8 @@ vi.mock("./components/FileExplorer", () => ({
     onActivatePane,
     onSelectionChange,
     onTogglePreview,
+    onCopyToInactivePane,
+    onMoveToInactivePane,
   }: FileExplorerMockProps) => (
     <section aria-label={paneLabel} data-active={String(isActivePane)} data-selected-index={selectedIndex}>
       <div>Pane: {paneId}</div>
@@ -141,6 +145,16 @@ vi.mock("./components/FileExplorer", () => ({
       <button type="button" onClick={() => onTogglePreview?.()}>
         Toggle preview {paneId}
       </button>
+      {onCopyToInactivePane ? (
+        <button type="button" onClick={() => onCopyToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
+          Copy to inactive pane {paneId}
+        </button>
+      ) : null}
+      {onMoveToInactivePane ? (
+        <button type="button" onClick={() => onMoveToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
+          Move to inactive pane {paneId}
+        </button>
+      ) : null}
     </section>
   ),
 }));
@@ -152,6 +166,29 @@ describe("App dual-pane lifecycle", () => {
     expect(screen.getByLabelText("Left file pane")).toBeInTheDocument();
     expect(screen.queryByLabelText("Right file pane")).not.toBeInTheDocument();
     expect(screen.getByTestId("pane-grid")).toHaveClass("single-pane-grid");
+  });
+
+  it("does not expose inactive-pane transfer actions in single-pane mode", () => {
+    render(<App />);
+
+    const leftPane = screen.getByLabelText("Left file pane");
+
+    expect(within(leftPane).queryByRole("button", { name: "Copy to inactive pane left" })).not.toBeInTheDocument();
+    expect(within(leftPane).queryByRole("button", { name: "Move to inactive pane left" })).not.toBeInTheDocument();
+  });
+
+  it("exposes inactive-pane transfer actions in dual-pane mode", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+
+    const leftPane = screen.getByLabelText("Left file pane");
+    const rightPane = screen.getByLabelText("Right file pane");
+
+    expect(within(leftPane).getByRole("button", { name: "Copy to inactive pane left" })).toBeInTheDocument();
+    expect(within(leftPane).getByRole("button", { name: "Move to inactive pane left" })).toBeInTheDocument();
+    expect(within(rightPane).getByRole("button", { name: "Copy to inactive pane right" })).toBeInTheDocument();
+    expect(within(rightPane).getByRole("button", { name: "Move to inactive pane right" })).toBeInTheDocument();
   });
 
   it("toggles the right pane at the desktop root", () => {

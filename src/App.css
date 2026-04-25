@@ -150,6 +150,7 @@
   @media (max-width: 899px) {
     .split-view-grid {
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: repeat(2, minmax(0, 1fr));
     }
   }
 

@@ -177,18 +177,18 @@ function App() {
   };
 
   const handleDualModeToggle = () => {
-    setDualMode((enabled) => {
-      if (enabled) {
-        setActivePane("left");
-        setInternalClipboard(null);
-        setPaneUi((current) => ({
-          ...current,
-          right: createDefaultPaneUiState(),
-        }));
-      }
+    const nextDualMode = !dualMode;
 
-      return !enabled;
-    });
+    setDualMode(nextDualMode);
+
+    if (!nextDualMode) {
+      setActivePane("left");
+      setInternalClipboard(null);
+      setPaneUi((current) => ({
+        ...current,
+        right: createDefaultPaneUiState(),
+      }));
+    }
   };
 
   const handleClipboardAction = (sourcePane: PaneId, mode: TransferMode, item: FileItem) => {
@@ -232,8 +232,8 @@ function App() {
           onViewModeChange={(viewMode) => handleViewModeChange(paneId, viewMode)}
           onSortChange={(sortBy, sortOrder) => handleSortChange(paneId, sortBy, sortOrder)}
           onActivatePane={setActivePane}
-          onCopyToInactivePane={(item) => handleClipboardAction(paneId, "copy", item)}
-          onMoveToInactivePane={(item) => handleClipboardAction(paneId, "move", item)}
+          onCopyToInactivePane={dualMode ? (item) => handleClipboardAction(paneId, "copy", item) : undefined}
+          onMoveToInactivePane={dualMode ? (item) => handleClipboardAction(paneId, "move", item) : undefined}
         />
       </div>
     );
