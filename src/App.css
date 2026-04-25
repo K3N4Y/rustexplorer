@@ -133,6 +133,26 @@
 }
 
 @layer utilities {
+  .single-pane-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    height: 100%;
+  }
+
+  .split-view-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 0;
+    height: 100%;
+  }
+
+  @media (max-width: 899px) {
+    .split-view-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .scrollbar-hidden {
     -ms-overflow-style: none;
     scrollbar-width: none;
