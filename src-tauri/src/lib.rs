@@ -346,7 +346,13 @@ fn copy_file(source_path: String, destination_dir: String) -> Result<(), String>
 fn move_file(source_path: String, destination_dir: String) -> Result<(), String> {
     let (source, destination) = validate_transfer_paths(&source_path, &destination_dir)?;
 
-    fs::rename(source, destination).map_err(|err| err.to_string())
+    if source.is_dir() {
+        copy_directory_recursive(&source, &destination)?;
+        fs::remove_dir_all(source).map_err(|err| err.to_string())
+    } else {
+        copy_file_leaf(&source, &destination)?;
+        fs::remove_file(source).map_err(|err| err.to_string())
+    }
 }
 
 fn extension_for_path(path: &Path) -> Option<String> {
@@ -748,6 +754,31 @@ mod tests {
 
         fs::remove_file(&destination_path).unwrap();
         fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_moves_directory_into_destination_directory() {
+        let source_parent = create_temp_dir("rustexplorer-move-dir-source");
+        let destination_dir = create_temp_dir("rustexplorer-move-dir-destination");
+        let source_path = source_parent.join("project");
+        let nested_dir = source_path.join("src");
+        let nested_file = nested_dir.join("main.rs");
+        fs::create_dir_all(&nested_dir).unwrap();
+        fs::write(&nested_file, b"fn main() {}").unwrap();
+
+        move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        let moved_file = destination_dir.join("project").join("src").join("main.rs");
+        assert!(!source_path.exists());
+        assert_eq!(fs::read(&moved_file).unwrap(), b"fn main() {}");
+
+        fs::remove_dir_all(destination_dir.join("project")).unwrap();
+        fs::remove_dir(&source_parent).unwrap();
         fs::remove_dir(&destination_dir).unwrap();
     }
 

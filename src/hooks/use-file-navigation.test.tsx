@@ -75,6 +75,29 @@ describe("useFilePaneNavigation", () => {
     expect(result.current.right.historyIndex).toBe(1);
   });
 
+  it("resets path and history back to the initial path", async () => {
+    const { result } = renderHook(() => useFilePaneNavigation("C:/root"));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/root" });
+    });
+
+    await act(async () => {
+      await result.current.navigateToPath("C:/root/projects");
+    });
+
+    expect(result.current.currentPath).toBe("C:/root/projects");
+    expect(result.current.history).toEqual(["C:/root", "C:/root/projects"]);
+
+    await act(async () => {
+      await result.current.resetToInitialPath();
+    });
+
+    expect(result.current.currentPath).toBe("C:/root");
+    expect(result.current.history).toEqual(["C:/root"]);
+    expect(result.current.historyIndex).toBe(0);
+  });
+
   it("copies items to a destination directory with snake_case invoke payloads", async () => {
     const { result } = renderHook(() => useFilePaneNavigation("C:/source"));
 

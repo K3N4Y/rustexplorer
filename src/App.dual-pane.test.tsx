@@ -8,6 +8,7 @@ type PaneId = "left" | "right";
 type FileExplorerMockProps = {
   paneId?: PaneId;
   paneLabel?: string;
+  isSearchActive?: boolean;
   isActivePane?: boolean;
   selectedIndex?: number;
   onActivatePane?: (paneId: PaneId) => void;
@@ -49,6 +50,7 @@ const navigationMock = vi.hoisted(() => {
     navigateToPath: vi.fn().mockResolvedValue(undefined),
     parentPath: "C:\\Users\\kenay\\OneDrive",
     moveItemToDirectory: vi.fn().mockResolvedValue(undefined),
+    resetToInitialPath: vi.fn().mockResolvedValue(undefined),
     renameItem: vi.fn(),
     setCurrentPath: vi.fn(),
     setFiles: vi.fn(),
@@ -105,7 +107,20 @@ vi.mock("./components/FileTreeSidebar", () => ({
 }));
 
 vi.mock("./components/SearchBar", () => ({
-  InputGroupDemo: () => null,
+  InputGroupDemo: ({
+    onSearchStateChange,
+  }: {
+    onSearchStateChange: (isActive: boolean) => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onSearchStateChange(true)}>
+        Start search
+      </button>
+      <button type="button" onClick={() => onSearchStateChange(false)}>
+        Clear search
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("./components/settings-dialog", () => ({
@@ -147,6 +162,7 @@ vi.mock("./components/FileExplorer", () => ({
   default: ({
     paneId = "left",
     paneLabel = "File explorer",
+    isSearchActive,
     isActivePane,
     selectedIndex,
     onActivatePane,
@@ -155,7 +171,12 @@ vi.mock("./components/FileExplorer", () => ({
     onCopyToInactivePane,
     onMoveToInactivePane,
   }: FileExplorerMockProps) => (
-    <section aria-label={paneLabel} data-active={String(isActivePane)} data-selected-index={selectedIndex}>
+    <section
+      aria-label={paneLabel}
+      data-active={String(isActivePane)}
+      data-search-active={String(isSearchActive)}
+      data-selected-index={selectedIndex}
+    >
       <div>Pane: {paneId}</div>
       <button type="button" onClick={() => onActivatePane?.(paneId)}>
         Activate {paneId}
@@ -189,6 +210,7 @@ describe("App dual-pane lifecycle", () => {
       pane.loadFolder.mockClear();
       pane.moveItemToDirectory.mockClear();
       pane.navigateToPath.mockClear();
+      pane.resetToInitialPath.mockClear();
       pane.renameItem.mockClear();
       pane.setCurrentPath.mockClear();
       pane.setFiles.mockClear();
@@ -247,6 +269,33 @@ describe("App dual-pane lifecycle", () => {
     expect(screen.getByLabelText("Left file pane")).toHaveAttribute("data-active", "true");
     expect(screen.queryByLabelText("Right file pane")).not.toBeInTheDocument();
     expect(screen.getByTestId("pane-grid")).toHaveClass("single-pane-grid");
+  });
+
+  it("resets the hidden right pane before dual pane is re-enabled", () => {
+    render(<App />);
+
+    const toggle = screen.getByRole("button", { name: "Toggle dual-pane split view" });
+    fireEvent.click(toggle);
+    const resetsAfterInitialEnable = navigationMock.rightPane.resetToInitialPath.mock.calls.length;
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+
+    expect(navigationMock.rightPane.resetToInitialPath).toHaveBeenCalledTimes(resetsAfterInitialEnable + 1);
+  });
+
+  it("marks search active only on the active pane", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start search" }));
+
+    expect(screen.getByLabelText("Left file pane")).toHaveAttribute("data-search-active", "true");
+    expect(screen.getByLabelText("Right file pane")).toHaveAttribute("data-search-active", "false");
+
+    fireEvent.click(within(screen.getByLabelText("Right file pane")).getByRole("button", { name: "Activate right" }));
+
+    expect(screen.getByLabelText("Left file pane")).toHaveAttribute("data-search-active", "false");
+    expect(screen.getByLabelText("Right file pane")).toHaveAttribute("data-search-active", "false");
   });
 
   it("uses the active pane selection for the shared preview", () => {

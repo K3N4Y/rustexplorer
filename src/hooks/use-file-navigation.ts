@@ -94,6 +94,19 @@ export function useFilePaneNavigation(initialPath: string) {
     [loadFolder, updateCurrentPath],
   );
 
+  const resetToInitialPath = useCallback(async () => {
+    updateCurrentPath(initialPath);
+    setNavigationHistory({
+      entries: [initialPath],
+      index: 0,
+    });
+    await navigateToPath(initialPath, { recordHistory: false });
+    setNavigationHistory({
+      entries: [initialPath],
+      index: 0,
+    });
+  }, [initialPath, navigateToPath, updateCurrentPath]);
+
   const renameItem = useCallback(
     async (item: FileItem, newName: string) => {
       await invoke("rename_file", {
@@ -167,6 +180,7 @@ export function useFilePaneNavigation(initialPath: string) {
     navigateToPath,
     parentPath,
     moveItemToDirectory,
+    resetToInitialPath,
     renameItem,
     setCurrentPath: updateCurrentPath,
     setFiles,

@@ -55,7 +55,7 @@ const createDefaultPaneUiState = (): PaneUiState => ({
 
 function App() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
-  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchActivePane, setSearchActivePane] = useState<PaneId | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContentReady, setPreviewContentReady] = useState(false);
   const [dualMode, setDualMode] = useState(false);
@@ -187,16 +187,24 @@ function App() {
   const handleDualModeToggle = () => {
     const nextDualMode = !dualMode;
 
-    setDualMode(nextDualMode);
-
     if (!nextDualMode) {
+      setDualMode(false);
       setActivePane("left");
       setInternalClipboard(null);
+      setSearchActivePane((paneId) => (paneId === "right" ? null : paneId));
       setPaneUi((current) => ({
         ...current,
         right: createDefaultPaneUiState(),
       }));
+      return;
     }
+
+    setPaneUi((current) => ({
+      ...current,
+      right: createDefaultPaneUiState(),
+    }));
+    void rightPane.resetToInitialPath();
+    setDualMode(true);
   };
 
   const performTransfer = useCallback(
@@ -292,7 +300,7 @@ function App() {
           initialFiles={pane.files}
           initialPath={pane.currentPath}
           isLoading={pane.isLoading}
-          isSearchActive={isSearchActive}
+          isSearchActive={searchActivePane === paneId && activePane === paneId}
           errorMessage={pane.errorMessage}
           onLoadFolder={pane.loadFolder}
           onRenameItem={pane.renameItem}
@@ -417,7 +425,7 @@ function App() {
           <div className="flex w-full items-center gap-3 md:w-auto">
             <InputGroupDemo 
               currentPath={currentPath}
-              onSearchStateChange={setIsSearchActive}
+              onSearchStateChange={(isActive) => setSearchActivePane(isActive ? activePane : null)}
               onSearchResults={(results) => setFiles(results)}
               onClearSearch={() => navigateToPath(currentPath, { recordHistory: false })}
             />
