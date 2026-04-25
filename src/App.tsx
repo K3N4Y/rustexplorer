@@ -101,11 +101,11 @@ function App() {
       </Sidebar>
 
       <SidebarInset className="flex flex-col h-screen overflow-hidden">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-4 py-3.5 sticky top-0 z-20">
+        <header className="sticky top-0 z-20 flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-5 py-4">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -152,15 +152,18 @@ function App() {
                 </Button>
               </div>
 
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 space-y-1">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  Rust Explorer
+                </p>
                 <div className="flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-foreground/65" />
-                  <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
+                  <FolderOpen className="h-4 w-4 text-foreground" />
+                  <h1 className="truncate text-xl font-medium leading-none text-foreground">
                     {getPathLabel(currentPath)}
                   </h1>
                 </div>
                 <p
-                  className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80"
+                  className="truncate font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground"
                   title={currentPath}
                 >
                   {currentPath}
@@ -186,7 +189,7 @@ function App() {
           <div className="flex h-full min-h-0">
             <div
               data-testid="file-list-scroll-region"
-              className="scrollbar-hidden min-w-0 flex-1 overflow-auto p-4"
+              className="scrollbar-hidden min-w-0 flex-1 overflow-auto p-5"
             >
               <FileExplorer
                 initialFiles={files}

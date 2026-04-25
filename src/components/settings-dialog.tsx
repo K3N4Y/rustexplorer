@@ -20,19 +20,22 @@ export function SettingsDialog() {
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen(true)}
-        className="h-9 w-9 rounded-full transition-colors duration-100 hover:bg-muted"
-        aria-label="Abrir configuración"
+        className="h-9 w-9 rounded-md transition-colors duration-200"
+        aria-label="Abrir configuracion"
       >
         <SettingsIcon className="h-4 w-4" strokeWidth={2.5} />
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/60 px-4 py-4 backdrop-blur-md transition-all duration-300 animate-in fade-in zoom-in-95">
-          <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-border/40 bg-background/90 text-foreground shadow-2xl shadow-black/10 ring-1 ring-foreground/5 backdrop-blur-2xl">
-            <div className="flex items-center justify-between border-b border-border/40 px-8 py-6 bg-gradient-to-b from-muted/20 to-transparent">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-4 transition-opacity duration-200 animate-in fade-in">
+          <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-background text-foreground">
+            <div className="flex items-center justify-between border-b border-border px-8 py-6">
               <div className="space-y-1">
-                <h2 className="text-2xl font-semibold tracking-tight text-foreground">Configuración</h2>
-                <p className="text-sm text-muted-foreground/80 font-medium">
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Settings
+                </p>
+                <h2 className="text-2xl font-medium text-foreground">Configuracion</h2>
+                <p className="text-sm font-medium text-muted-foreground">
                   Ajusta la apariencia y el comportamiento del explorador.
                 </p>
               </div>
@@ -41,28 +44,27 @@ export function SettingsDialog() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(false)}
-                className="h-10 w-10 rounded-full hover:bg-muted/60 transition-colors"
-                aria-label="Cerrar configuración"
+                className="h-10 w-10 rounded-md transition-colors"
+                aria-label="Cerrar configuracion"
               >
                 <X className="h-5 w-5" strokeWidth={2.5} />
               </Button>
             </div>
 
-            <div className="space-y-8 overflow-y-auto px-8 py-8 h-full max-h-[60vh] scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-
+            <div className="h-full max-h-[60vh] space-y-8 overflow-y-auto px-8 py-8">
               <section className="space-y-4">
-                <div className="space-y-1.5 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                <div className="flex items-center gap-2 space-y-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                     Apariencia
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {[
-                    { value: "light", label: "Claro", hint: "Limpio y brillante", icon: SunMedium },
-                    { value: "dark", label: "Oscuro", hint: "Relajante a la vista", icon: MoonStar },
-                    { value: "system", label: "Sistema", hint: "Según tu equipo", icon: SettingsIcon },
+                    { value: "light", label: "Claro", hint: "Manual tecnico", icon: SunMedium },
+                    { value: "dark", label: "Oscuro", hint: "Panel OLED", icon: MoonStar },
+                    { value: "system", label: "Sistema", hint: "Segun tu equipo", icon: SettingsIcon },
                   ].map((option) => {
                     const Icon = option.icon;
                     const active = theme === option.value;
@@ -72,28 +74,26 @@ export function SettingsDialog() {
                         key={option.value}
                         type="button"
                         onClick={() => setTheme(option.value as any)}
-                        className={`group relative flex flex-col outline-none items-start overflow-hidden rounded-2xl border p-4 transition-all duration-200 active:scale-[0.98] ${
+                        className={`group relative flex flex-col items-start overflow-hidden rounded-xl border p-4 outline-none transition-colors duration-200 ${
                           active
-                            ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30 shadow-sm"
-                            : "border-border/50 bg-muted/10 hover:border-border/80 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring"
+                            ? "border-t-2 border-t-accent border-foreground bg-muted"
+                            : "border-border bg-transparent hover:border-border-visible hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/20"
                         }`}
                       >
                         <div className="mb-4 flex w-full items-center justify-between">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
-                            active 
-                              ? "border-primary/20 bg-primary/10 text-primary" 
-                              : "border-border/50 bg-background text-muted-foreground group-hover:text-foreground"
-                          }`}>
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-md border transition-colors ${
+                              active
+                                ? "border-foreground bg-transparent text-foreground"
+                                : "border-border bg-background text-muted-foreground group-hover:text-foreground"
+                            }`}
+                          >
                             <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
                           </div>
-                          {active && (
-                            <span className="flex h-2 w-2 rounded-full bg-primary shadow-[0_0_0_4px_rgba(var(--primary),0.1)]" />
-                          )}
+                          {active && <span className="flex h-2 w-2 rounded-full bg-accent" />}
                         </div>
-                        <p className={`text-[15px] font-semibold tracking-tight ${active ? "text-primary" : "text-foreground"}`}>
-                          {option.label}
-                        </p>
-                        <p className="mt-1 flex-1 text-left text-xs font-medium text-muted-foreground/70">
+                        <p className="text-[15px] font-medium text-foreground">{option.label}</p>
+                        <p className="mt-1 flex-1 text-left text-xs font-medium text-muted-foreground">
                           {option.hint}
                         </p>
                       </button>
@@ -103,33 +103,32 @@ export function SettingsDialog() {
               </section>
 
               <section className="space-y-4">
-                <div className="space-y-1.5 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
-                    Búsqueda y Exploración
+                <div className="flex items-center gap-2 space-y-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                    Busqueda y exploracion
                   </h3>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  
-                  <div className="group flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-2xl border border-border/40 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/40">
+                  <div className="group flex flex-col justify-between gap-4 rounded-xl border border-border bg-transparent px-5 py-4 transition-colors hover:bg-muted sm:flex-row sm:items-center">
                     <div className="space-y-1">
-                      <label htmlFor="itemsPerPage" className="text-[15px] font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                        Resultados por página
+                      <label htmlFor="itemsPerPage" className="text-[15px] font-medium text-foreground">
+                        Resultados por pagina
                       </label>
-                      <p className="text-[13px] font-medium text-muted-foreground/80 max-w-sm">
-                        Límite de archivos motrados para no saturar la vista. 
-                        Recomendado: <span className="text-foreground/70 font-semibold bg-background border px-1 rounded">30</span>
+                      <p className="max-w-sm text-[13px] font-medium text-muted-foreground">
+                        Limite de archivos mostrados para no saturar la vista. Recomendado:{" "}
+                        <span className="rounded border px-1 font-mono font-bold text-foreground">30</span>
                       </p>
                     </div>
 
-                    <div className="relative w-full sm:w-32 shrink-0">
+                    <div className="relative w-full shrink-0 sm:w-32">
                       <input
                         id="itemsPerPage"
                         type="number"
                         min={ITEMS_PER_PAGE_MIN}
                         max={ITEMS_PER_PAGE_MAX}
-                        className="peer flex h-11 w-full rounded-xl border border-border/60 bg-background/60 px-4 py-2 text-right text-[15px] font-semibold tabular-nums shadow-sm transition-all hover:bg-background focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-4 focus:ring-primary/10"
+                        className="peer flex h-11 w-full rounded-md border border-border-visible bg-transparent px-4 py-2 text-right font-mono text-[15px] font-bold tabular-nums transition-colors hover:border-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
                         value={itemsPerPage}
                         onChange={(e) =>
                           updateSettings({
@@ -143,25 +142,25 @@ export function SettingsDialog() {
                     </div>
                   </div>
 
-                  <div className="group flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-2xl border border-border/40 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/40">
-                    <div className="space-y-1 flex-1">
-                      <label htmlFor="searchThreads" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                        <Search className="h-[18px] w-[18px] text-muted-foreground/70" strokeWidth={2.5} />
+                  <div className="group flex flex-col justify-between gap-4 rounded-xl border border-border bg-transparent px-5 py-4 transition-colors hover:bg-muted sm:flex-row sm:items-center">
+                    <div className="flex-1 space-y-1">
+                      <label htmlFor="searchThreads" className="flex items-center gap-2 text-[15px] font-medium text-foreground">
+                        <Search className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={2.5} />
                         Hilos de procesamiento
                       </label>
-                      <p className="text-[13px] font-medium text-muted-foreground/80 max-w-[340px]">
-                        Divide el trabajo de lectura en varios núcleos. Un número mayor consume más CPU. 
-                        Recomendado: <span className="text-foreground/70 font-semibold bg-background border px-1 rounded">4</span>
+                      <p className="max-w-[340px] text-[13px] font-medium text-muted-foreground">
+                        Divide la lectura en varios nucleos. Un numero mayor consume mas CPU. Recomendado:{" "}
+                        <span className="rounded border px-1 font-mono font-bold text-foreground">4</span>
                       </p>
                     </div>
 
-                    <div className="relative w-full sm:w-32 shrink-0">
+                    <div className="relative w-full shrink-0 sm:w-32">
                       <input
                         id="searchThreads"
                         type="number"
                         min={SEARCH_THREADS_MIN}
                         max={SEARCH_THREADS_MAX}
-                        className="peer flex h-11 w-full rounded-xl border border-border/60 bg-background/60 px-4 py-2 text-right text-[15px] font-semibold tabular-nums shadow-sm transition-all hover:bg-background focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-4 focus:ring-primary/10"
+                        className="peer flex h-11 w-full rounded-md border border-border-visible bg-transparent px-4 py-2 text-right font-mono text-[15px] font-bold tabular-nums transition-colors hover:border-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
                         value={searchThreads}
                         onChange={(e) =>
                           updateSettings({
@@ -174,20 +173,15 @@ export function SettingsDialog() {
                       />
                     </div>
                   </div>
-
                 </div>
               </section>
-
             </div>
 
-            <div className="flex items-center justify-between border-t border-border/40 bg-background/50 px-8 py-5 backdrop-blur-md">
-              <p className="text-[13px] font-semibold tracking-tight text-muted-foreground/70">
-                Los cambios se guardan instantáneamente
+            <div className="flex items-center justify-between border-t border-border bg-background px-8 py-5">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                Los cambios se guardan instantaneamente
               </p>
-              <Button 
-                onClick={() => setIsOpen(false)}
-                className="rounded-xl px-7 font-bold shadow-md transition-all active:scale-[0.96]"
-              >
+              <Button onClick={() => setIsOpen(false)} className="px-7">
                 Cerrar
               </Button>
             </div>

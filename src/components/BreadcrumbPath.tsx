@@ -12,15 +12,15 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
   const items = React.useMemo(() => buildBreadcrumbItems(currentPath), [currentPath]);
 
   return (
-    <nav className="border-b border-border bg-transparent px-4 py-2.5 flex items-center justify-between" aria-label="Breadcrumb">
-      <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-[12px] font-medium tracking-[0.01em] text-muted-foreground">
+    <nav className="flex items-center justify-between border-b border-border bg-transparent px-5 py-3" aria-label="Breadcrumb">
+      <ol className="flex items-center gap-1 overflow-x-auto whitespace-nowrap font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
         <li>
           <button
             type="button"
             onClick={() => {
               void onNavigate(items[0].path);
             }}
-            className="inline-flex items-center rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex items-center rounded-md px-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
             title={items[0].path}
           >
             <House className="h-3.5 w-3.5" aria-hidden="true" />
@@ -41,8 +41,8 @@ const BreadcrumbPath: React.FC<BreadcrumbPathProps> = ({ currentPath, onNavigate
                 disabled={isLast}
                 className={`rounded-md px-2 py-1 transition-colors ${
                   isLast
-                    ? 'cursor-default text-sm font-semibold tracking-tight text-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'cursor-default text-[12px] text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title={item.path}
               >

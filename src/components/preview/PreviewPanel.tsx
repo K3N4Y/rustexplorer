@@ -96,7 +96,7 @@ export default function PreviewPanel({
         aria-label="Resize preview panel"
         aria-orientation="vertical"
         tabIndex={0}
-        className="absolute inset-y-0 left-0 z-10 w-2 -translate-x-1 cursor-col-resize touch-none outline-none transition-colors hover:bg-primary/25 focus-visible:bg-primary/30"
+        className="absolute inset-y-0 left-0 z-10 w-2 -translate-x-1 cursor-col-resize touch-none outline-none transition-colors hover:bg-accent/40 focus-visible:bg-accent/50"
         onPointerDown={(event) => {
           dragStateRef.current = {
             startX: event.clientX,
@@ -119,7 +119,7 @@ export default function PreviewPanel({
       />
 
       <div className="border-b border-border px-4 py-3">
-        <h2 className="truncate text-sm font-semibold">Preview</h2>
+        <h2 className="truncate font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">Preview</h2>
         {selectedName ? (
           <p className="truncate text-xs text-muted-foreground">{selectedName}</p>
         ) : null}
@@ -129,10 +129,12 @@ export default function PreviewPanel({
         data-testid="preview-content-area"
         className="scrollbar-hidden h-full min-h-0 flex-1 overflow-auto p-4"
       >
-        {isLoading ? <p>Cargando preview...</p> : null}
-        {!isLoading && error ? <p>{error}</p> : null}
+        {isLoading ? <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">[LOADING PREVIEW]</p> : null}
+        {!isLoading && error ? <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-destructive">[ERROR] {error}</p> : null}
         {!isLoading && !error && !payload ? (
-          <p>Selecciona un archivo y presiona Space para abrir el preview.</p>
+          <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            [SELECT FILE] SPACE TO PREVIEW
+          </p>
         ) : null}
         {!isLoading && !error && payload ? <PreviewContent payload={payload} /> : null}
       </div>
