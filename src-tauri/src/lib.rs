@@ -16,6 +16,26 @@ use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
+const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
+    ".cache",
+    ".git",
+    ".mypy_cache",
+    ".next",
+    ".nuxt",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".turbo",
+    ".venv",
+    ".vite",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "env",
+    "node_modules",
+    "target",
+    "venv",
+];
 
 #[derive(Serialize, Clone)]
 struct SearchResultChunkEvent {
@@ -139,6 +159,7 @@ async fn search_with_ignore(
 
         let buscador = WalkBuilder::new(&path)
             .threads(thread_count)
+            .filter_entry(should_search_entry)
             .build_parallel();
 
         buscador.run(|| {
@@ -488,6 +509,21 @@ fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
     Ok(files)
 }
 
+fn should_search_entry(entry: &ignore::DirEntry) -> bool {
+    if !entry
+        .file_type()
+        .is_some_and(|file_type| file_type.is_dir())
+    {
+        return true;
+    }
+
+    let name = entry.file_name().to_string_lossy();
+
+    !DEFAULT_EXCLUDED_SEARCH_DIRS
+        .iter()
+        .any(|excluded| name.eq_ignore_ascii_case(excluded))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -750,6 +786,33 @@ mod tests {
         }
 
         fs::remove_file(&file_path).unwrap();
+        fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn should_search_entry_skips_default_excluded_directories() {
+        let temp_dir = create_temp_dir("rustexplorer-search-exclude");
+        let node_modules_dir = temp_dir.join("node_modules");
+        let src_dir = temp_dir.join("src");
+        fs::create_dir(&node_modules_dir).unwrap();
+        fs::create_dir(&src_dir).unwrap();
+
+        let entries: Vec<_> = ignore::WalkBuilder::new(&temp_dir)
+            .max_depth(Some(1))
+            .build()
+            .filter_map(Result::ok)
+            .collect();
+        let node_modules_entry = entries
+            .iter()
+            .find(|entry| entry.path() == node_modules_dir)
+            .unwrap();
+        let src_entry = entries.iter().find(|entry| entry.path() == src_dir).unwrap();
+
+        assert!(!should_search_entry(node_modules_entry));
+        assert!(should_search_entry(src_entry));
+
+        fs::remove_dir(&src_dir).unwrap();
+        fs::remove_dir(&node_modules_dir).unwrap();
         fs::remove_dir(&temp_dir).unwrap();
     }
 }
