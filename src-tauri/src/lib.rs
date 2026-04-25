@@ -528,14 +528,45 @@ fn should_search_entry(entry: &ignore::DirEntry) -> bool {
 mod tests {
     use super::*;
 
-    fn create_temp_dir(prefix: &str) -> PathBuf {
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn join(&self, path: impl AsRef<Path>) -> PathBuf {
+            self.path.join(path)
+        }
+    }
+
+    impl AsRef<Path> for TempDir {
+        fn as_ref(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl std::ops::Deref for TempDir {
+        type Target = Path;
+
+        fn deref(&self) -> &Self::Target {
+            &self.path
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn create_temp_dir(prefix: &str) -> TempDir {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("{}-{}-{}", prefix, std::process::id(), nanos));
+        let dir =
+            std::env::temp_dir().join(format!("{}-{}-{}", prefix, std::process::id(), nanos));
         fs::create_dir_all(&dir).unwrap();
-        dir
+        TempDir { path: dir }
     }
 
     #[test]
@@ -654,6 +685,46 @@ mod tests {
         let source_path = destination_dir.join("missing.txt");
 
         let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert!(!destination_dir.join("missing.txt").exists());
+
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_rejects_duplicate_destination_without_overwriting() {
+        let source_dir = create_temp_dir("rustexplorer-move-duplicate-source");
+        let destination_dir = create_temp_dir("rustexplorer-move-duplicate-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("notes.txt");
+        fs::write(&source_path, b"new content").unwrap();
+        fs::write(&destination_path, b"existing content").unwrap();
+
+        let result = move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&source_path).unwrap(), b"new content");
+        assert_eq!(fs::read(&destination_path).unwrap(), b"existing content");
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_rejects_invalid_source_path() {
+        let destination_dir = create_temp_dir("rustexplorer-move-invalid-source");
+        let source_path = destination_dir.join("missing.txt");
+
+        let result = move_file(
             source_path.to_string_lossy().to_string(),
             destination_dir.to_string_lossy().to_string(),
         );
