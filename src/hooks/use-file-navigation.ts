@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SetStateAction } from "react";
 import type { FileItem } from "../components/file-types";
 import { getParentPath } from "../lib/path-utils";
 
@@ -18,6 +19,8 @@ type NavigateOptions = {
 export function useFilePaneNavigation(initialPath: string) {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState(initialPath);
+  const currentPathRef = useRef(initialPath);
+  const latestNavigationRequestRef = useRef(0);
   const [navigationHistory, setNavigationHistory] = useState({
     entries: [initialPath],
     index: 0,
@@ -37,15 +40,29 @@ export function useFilePaneNavigation(initialPath: string) {
     }));
   }, []);
 
+  const updateCurrentPath = useCallback((path: SetStateAction<string>) => {
+    setCurrentPath((previousPath) => {
+      const nextPath = typeof path === "function" ? path(previousPath) : path;
+      currentPathRef.current = nextPath;
+      return nextPath;
+    });
+  }, []);
+
   const navigateToPath = useCallback(
     async (path: string, options?: NavigateOptions) => {
+      const navigationRequest = latestNavigationRequestRef.current + 1;
+      latestNavigationRequestRef.current = navigationRequest;
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
         const nextFiles = await loadFolder(path);
+        if (latestNavigationRequestRef.current !== navigationRequest) {
+          return nextFiles;
+        }
+
         setFiles(nextFiles);
-        setCurrentPath(path);
+        updateCurrentPath(path);
 
         if (options?.recordHistory !== false) {
           setNavigationHistory((previous) => {
@@ -64,13 +81,17 @@ export function useFilePaneNavigation(initialPath: string) {
         return nextFiles;
       } catch (error) {
         console.error("Error loading folder:", error);
-        setErrorMessage("No se pudo cargar esta carpeta. Intenta de nuevo.");
+        if (latestNavigationRequestRef.current === navigationRequest) {
+          setErrorMessage("No se pudo cargar esta carpeta. Intenta de nuevo.");
+        }
         throw error;
       } finally {
-        setIsLoading(false);
+        if (latestNavigationRequestRef.current === navigationRequest) {
+          setIsLoading(false);
+        }
       }
     },
-    [loadFolder],
+    [loadFolder, updateCurrentPath],
   );
 
   const renameItem = useCallback(
@@ -80,9 +101,9 @@ export function useFilePaneNavigation(initialPath: string) {
         target_name: newName,
       });
 
-      await navigateToPath(currentPath);
+      await navigateToPath(currentPathRef.current);
     },
-    [currentPath, navigateToPath],
+    [navigateToPath],
   );
 
   const deleteItem = useCallback(
@@ -91,9 +112,9 @@ export function useFilePaneNavigation(initialPath: string) {
         target_path: item.path,
       });
 
-      await navigateToPath(currentPath);
+      await navigateToPath(currentPathRef.current);
     },
-    [currentPath, navigateToPath],
+    [navigateToPath],
   );
 
   const copyItemToDirectory = useCallback(
@@ -103,9 +124,9 @@ export function useFilePaneNavigation(initialPath: string) {
         destination_dir: destinationDir,
       });
 
-      await navigateToPath(currentPath);
+      await navigateToPath(currentPathRef.current);
     },
-    [currentPath, navigateToPath],
+    [navigateToPath],
   );
 
   const moveItemToDirectory = useCallback(
@@ -115,9 +136,9 @@ export function useFilePaneNavigation(initialPath: string) {
         destination_dir: destinationDir,
       });
 
-      await navigateToPath(currentPath);
+      await navigateToPath(currentPathRef.current);
     },
-    [currentPath, navigateToPath],
+    [navigateToPath],
   );
 
   useEffect(() => {
@@ -147,7 +168,7 @@ export function useFilePaneNavigation(initialPath: string) {
     parentPath,
     moveItemToDirectory,
     renameItem,
-    setCurrentPath,
+    setCurrentPath: updateCurrentPath,
     setFiles,
     setHistoryIndex: (index: number) => {
       setNavigationHistory((previous) => ({
