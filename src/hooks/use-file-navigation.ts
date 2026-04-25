@@ -15,11 +15,11 @@ type NavigateOptions = {
   recordHistory?: boolean;
 };
 
-export function useFileNavigation(rootPath: string) {
+export function useFilePaneNavigation(initialPath: string) {
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentPath, setCurrentPath] = useState(rootPath);
+  const [currentPath, setCurrentPath] = useState(initialPath);
   const [navigationHistory, setNavigationHistory] = useState({
-    entries: [rootPath],
+    entries: [initialPath],
     index: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -96,11 +96,35 @@ export function useFileNavigation(rootPath: string) {
     [currentPath, navigateToPath],
   );
 
+  const copyItemToDirectory = useCallback(
+    async (item: FileItem, destinationDir: string) => {
+      await invoke("copy_file", {
+        source_path: item.path,
+        destination_dir: destinationDir,
+      });
+
+      await navigateToPath(currentPath);
+    },
+    [currentPath, navigateToPath],
+  );
+
+  const moveItemToDirectory = useCallback(
+    async (item: FileItem, destinationDir: string) => {
+      await invoke("move_file", {
+        source_path: item.path,
+        destination_dir: destinationDir,
+      });
+
+      await navigateToPath(currentPath);
+    },
+    [currentPath, navigateToPath],
+  );
+
   useEffect(() => {
-    navigateToPath(rootPath).catch((error) => {
+    navigateToPath(initialPath).catch((error) => {
       console.error("Error loading initial folder:", error);
     });
-  }, [navigateToPath, rootPath]);
+  }, [navigateToPath, initialPath]);
 
   const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
   const history = navigationHistory.entries;
@@ -111,6 +135,7 @@ export function useFileNavigation(rootPath: string) {
     canGoForward: historyIndex < history.length - 1,
     canGoUp: parentPath !== currentPath,
     currentPath,
+    copyItemToDirectory,
     deleteItem,
     errorMessage,
     files,
@@ -120,6 +145,7 @@ export function useFileNavigation(rootPath: string) {
     loadFolder,
     navigateToPath,
     parentPath,
+    moveItemToDirectory,
     renameItem,
     setCurrentPath,
     setFiles,
@@ -130,4 +156,8 @@ export function useFileNavigation(rootPath: string) {
       }));
     },
   };
+}
+
+export function useFileNavigation(rootPath: string) {
+  return useFilePaneNavigation(rootPath);
 }
