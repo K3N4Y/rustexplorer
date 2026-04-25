@@ -7,6 +7,7 @@ use ignore::WalkBuilder;
 use serde::Serialize;
 use std::{
     fs,
+    io::Read,
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
@@ -314,12 +315,33 @@ fn is_video_extension(ext: &str) -> bool {
     )
 }
 
-fn read_text_preview(target: &Path, preview_limit: usize) -> Result<(String, bool), String> {
-    let bytes = fs::read(target).map_err(|err| err.to_string())?;
+fn read_limited_text_preview<R: Read>(
+    reader: R,
+    preview_limit: usize,
+) -> Result<(String, bool), String> {
+    let mut bytes = Vec::new();
+    let max_read_bytes = preview_limit.saturating_add(1);
+
+    reader
+        .take(max_read_bytes as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|err| err.to_string())?;
+
     let truncated = bytes.len() > preview_limit;
-    let content = String::from_utf8_lossy(&bytes[..bytes.len().min(preview_limit)]).to_string();
+
+    if truncated {
+        bytes.truncate(preview_limit);
+    }
+
+    let content = String::from_utf8_lossy(&bytes).to_string();
 
     Ok((content, truncated))
+}
+
+fn read_text_preview(target: &Path, preview_limit: usize) -> Result<(String, bool), String> {
+    let file = fs::File::open(target).map_err(|err| err.to_string())?;
+
+    read_limited_text_preview(file, preview_limit)
 }
 
 #[tauri::command]
@@ -570,6 +592,44 @@ mod tests {
 
         fs::remove_file(&file_path).unwrap();
         fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_limited_text_preview_stops_after_preview_limit_plus_one() {
+        struct GuardedReader {
+            emitted: usize,
+            fail_after: usize,
+            total: usize,
+        }
+
+        impl std::io::Read for GuardedReader {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                if self.emitted >= self.fail_after {
+                    panic!("reader continued past the preview limit");
+                }
+
+                if self.emitted >= self.total {
+                    return Ok(0);
+                }
+
+                buf[0] = b'a';
+                self.emitted += 1;
+                Ok(1)
+            }
+        }
+
+        let (content, truncated) = read_limited_text_preview(
+            GuardedReader {
+                emitted: 0,
+                fail_after: 6,
+                total: 2_048,
+            },
+            5,
+        )
+        .unwrap();
+
+        assert_eq!(content, "aaaaa");
+        assert!(truncated);
     }
 
     #[test]

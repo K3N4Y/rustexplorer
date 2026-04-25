@@ -73,7 +73,6 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
   >
     <div
       className={className}
-      onContextMenu={() => onSelect(index)}
       onClick={() => {
         onSelect(index);
       }}
