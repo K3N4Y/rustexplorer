@@ -6,8 +6,8 @@ use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
 use serde::Serialize;
 use std::{
-    fs,
-    io::Read,
+    fs::{self, OpenOptions},
+    io::{self, Read},
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
@@ -284,7 +284,33 @@ fn validate_transfer_paths(
         return Err("a file or folder with that name already exists".to_string());
     }
 
+    if source.is_dir() {
+        let source = source.canonicalize().map_err(|err| err.to_string())?;
+        let destination_dir = destination_dir
+            .canonicalize()
+            .map_err(|err| err.to_string())?;
+
+        if destination_dir.starts_with(&source) {
+            return Err("cannot transfer a directory into itself".to_string());
+        }
+
+        return Ok((source, destination));
+    }
+
     Ok((source, destination))
+}
+
+fn copy_file_leaf(source: &Path, destination: &Path) -> Result<(), String> {
+    let mut source_file = fs::File::open(source).map_err(|err| err.to_string())?;
+    let mut destination_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)
+        .map_err(|err| err.to_string())?;
+
+    io::copy(&mut source_file, &mut destination_file)
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), String> {
@@ -298,7 +324,7 @@ fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), Str
         if entry.file_type().map_err(|err| err.to_string())?.is_dir() {
             copy_directory_recursive(&source_path, &destination_path)?;
         } else {
-            fs::copy(&source_path, &destination_path).map_err(|err| err.to_string())?;
+            copy_file_leaf(&source_path, &destination_path)?;
         }
     }
 
@@ -312,9 +338,7 @@ fn copy_file(source_path: String, destination_dir: String) -> Result<(), String>
     if source.is_dir() {
         copy_directory_recursive(&source, &destination)
     } else {
-        fs::copy(source, destination)
-            .map(|_| ())
-            .map_err(|err| err.to_string())
+        copy_file_leaf(&source, &destination)
     }
 }
 
@@ -835,6 +859,26 @@ mod tests {
     }
 
     #[test]
+    fn copy_file_rejects_directory_copy_into_descendant() {
+        let source_parent = create_temp_dir("rustexplorer-copy-dir-descendant-source");
+        let source_path = source_parent.join("project");
+        let destination_dir = source_path.join("backup");
+        fs::create_dir_all(&destination_dir).unwrap();
+        fs::write(source_path.join("notes.txt"), b"copy me").unwrap();
+
+        let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert_eq!(
+            result,
+            Err("cannot transfer a directory into itself".to_string())
+        );
+        assert!(!destination_dir.join("project").exists());
+    }
+
+    #[test]
     fn move_file_rejects_duplicate_destination_without_overwriting() {
         let source_dir = create_temp_dir("rustexplorer-move-duplicate-source");
         let destination_dir = create_temp_dir("rustexplorer-move-duplicate-destination");
@@ -916,6 +960,27 @@ mod tests {
         fs::remove_file(&destination_path).unwrap();
         fs::remove_dir(&source_dir).unwrap();
         fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_rejects_directory_move_into_descendant() {
+        let source_parent = create_temp_dir("rustexplorer-move-dir-descendant-source");
+        let source_path = source_parent.join("project");
+        let destination_dir = source_path.join("backup");
+        fs::create_dir_all(&destination_dir).unwrap();
+        fs::write(source_path.join("notes.txt"), b"move me").unwrap();
+
+        let result = move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert_eq!(
+            result,
+            Err("cannot transfer a directory into itself".to_string())
+        );
+        assert!(source_path.exists());
+        assert!(!destination_dir.join("project").exists());
     }
 
     #[test]
