@@ -102,6 +102,8 @@ pub fn run() {
             get_files,
             rename_file,
             delete_file,
+            copy_file,
+            move_file,
             read_file_preview
         ])
         .run(tauri::generate_context!())
@@ -252,6 +254,75 @@ fn delete_file(target_path: String) -> Result<(), String> {
     } else {
         fs::remove_file(target).map_err(|err| err.to_string())
     }
+}
+
+fn validate_transfer_paths(
+    source_path: &str,
+    destination_dir: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    let source = PathBuf::from(source_path);
+    let destination_dir = PathBuf::from(destination_dir);
+
+    if !source.exists() {
+        return Err("source does not exist".to_string());
+    }
+
+    if !destination_dir.exists() {
+        return Err("destination directory does not exist".to_string());
+    }
+
+    if !destination_dir.is_dir() {
+        return Err("destination path is not a directory".to_string());
+    }
+
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| "source has no file name".to_string())?;
+    let destination = destination_dir.join(file_name);
+
+    if destination.exists() {
+        return Err("a file or folder with that name already exists".to_string());
+    }
+
+    Ok((source, destination))
+}
+
+fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir(destination).map_err(|err| err.to_string())?;
+
+    for entry in fs::read_dir(source).map_err(|err| err.to_string())? {
+        let entry = entry.map_err(|err| err.to_string())?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+
+        if entry.file_type().map_err(|err| err.to_string())?.is_dir() {
+            copy_directory_recursive(&source_path, &destination_path)?;
+        } else {
+            fs::copy(&source_path, &destination_path).map_err(|err| err.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn copy_file(source_path: String, destination_dir: String) -> Result<(), String> {
+    let (source, destination) = validate_transfer_paths(&source_path, &destination_dir)?;
+
+    if source.is_dir() {
+        copy_directory_recursive(&source, &destination)
+    } else {
+        fs::copy(source, destination)
+            .map(|_| ())
+            .map_err(|err| err.to_string())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn move_file(source_path: String, destination_dir: String) -> Result<(), String> {
+    let (source, destination) = validate_transfer_paths(&source_path, &destination_dir)?;
+
+    fs::rename(source, destination).map_err(|err| err.to_string())
 }
 
 fn extension_for_path(path: &Path) -> Option<String> {
@@ -696,6 +767,74 @@ mod tests {
     }
 
     #[test]
+    fn copy_file_rejects_missing_destination_directory() {
+        let source_dir = create_temp_dir("rustexplorer-copy-missing-destination-source");
+        let source_path = source_dir.join("notes.txt");
+        let destination_dir = source_dir.join("missing-destination");
+        fs::write(&source_path, b"copy me").unwrap();
+
+        let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert!(!destination_dir.exists());
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+    }
+
+    #[test]
+    fn copy_file_rejects_destination_path_that_is_not_directory() {
+        let source_dir = create_temp_dir("rustexplorer-copy-file-destination-source");
+        let destination_dir = create_temp_dir("rustexplorer-copy-file-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("target.txt");
+        fs::write(&source_path, b"copy me").unwrap();
+        fs::write(&destination_path, b"not a directory").unwrap();
+
+        let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_path.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&destination_path).unwrap(), b"not a directory");
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn copy_file_copies_directory_recursively() {
+        let source_parent = create_temp_dir("rustexplorer-copy-dir-source");
+        let destination_dir = create_temp_dir("rustexplorer-copy-dir-destination");
+        let source_path = source_parent.join("project");
+        let nested_dir = source_path.join("src");
+        let nested_file = nested_dir.join("main.rs");
+        fs::create_dir_all(&nested_dir).unwrap();
+        fs::write(&nested_file, b"fn main() {}").unwrap();
+
+        copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        let copied_file = destination_dir.join("project").join("src").join("main.rs");
+        assert_eq!(fs::read(&nested_file).unwrap(), b"fn main() {}");
+        assert_eq!(fs::read(&copied_file).unwrap(), b"fn main() {}");
+
+        fs::remove_dir_all(&source_path).unwrap();
+        fs::remove_dir_all(destination_dir.join("project")).unwrap();
+        fs::remove_dir(&source_parent).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
     fn move_file_rejects_duplicate_destination_without_overwriting() {
         let source_dir = create_temp_dir("rustexplorer-move-duplicate-source");
         let destination_dir = create_temp_dir("rustexplorer-move-duplicate-destination");
@@ -732,6 +871,50 @@ mod tests {
         assert!(result.is_err());
         assert!(!destination_dir.join("missing.txt").exists());
 
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_rejects_missing_destination_directory() {
+        let source_dir = create_temp_dir("rustexplorer-move-missing-destination-source");
+        let source_path = source_dir.join("notes.txt");
+        let destination_dir = source_dir.join("missing-destination");
+        fs::write(&source_path, b"move me").unwrap();
+
+        let result = move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&source_path).unwrap(), b"move me");
+        assert!(!destination_dir.exists());
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_rejects_destination_path_that_is_not_directory() {
+        let source_dir = create_temp_dir("rustexplorer-move-file-destination-source");
+        let destination_dir = create_temp_dir("rustexplorer-move-file-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("target.txt");
+        fs::write(&source_path, b"move me").unwrap();
+        fs::write(&destination_path, b"not a directory").unwrap();
+
+        let result = move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_path.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&source_path).unwrap(), b"move me");
+        assert_eq!(fs::read(&destination_path).unwrap(), b"not a directory");
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
         fs::remove_dir(&destination_dir).unwrap();
     }
 
