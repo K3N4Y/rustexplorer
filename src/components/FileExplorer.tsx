@@ -35,10 +35,25 @@ interface FileExplorerProps {
   onRetry?: () => Promise<unknown>;
   onSelectionChange?: (item: FileItem | null) => void;
   onTogglePreview?: () => void;
+  paneId?: PaneId;
+  paneLabel?: string;
+  isActivePane?: boolean;
+  selectedIndex?: number;
+  viewMode?: ViewMode;
+  sortBy?: SortOption;
+  sortOrder?: SortOrder;
+  onSelectedIndexChange?: (index: number) => void;
+  onViewModeChange?: (viewMode: ViewMode) => void;
+  onSortChange?: (sortBy: SortOption, sortOrder: SortOrder) => void;
+  onActivatePane?: (paneId: PaneId) => void;
+  onCopyToInactivePane?: (item: FileItem) => void;
+  onMoveToInactivePane?: (item: FileItem) => void;
 }
 
+type PaneId = 'left' | 'right';
 type SortOption = 'name' | 'modified' | 'type' | 'size';
 type SortOrder = 'asc' | 'desc';
+type ViewMode = 'list' | 'grid';
 
 interface FileItemShellProps {
   file: FileItem;
@@ -49,6 +64,8 @@ interface FileItemShellProps {
   onRename?: (item: FileItem) => void;
   onDelete?: (item: FileItem) => void;
   onSelect: (index: number) => void;
+  onCopyToInactivePane?: (item: FileItem) => void;
+  onMoveToInactivePane?: (item: FileItem) => void;
 }
 
 const FileItemShell: React.FC<FileItemShellProps> = ({
@@ -60,6 +77,8 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
   onRename,
   onDelete,
   onSelect,
+  onCopyToInactivePane,
+  onMoveToInactivePane,
 }) => (
   <FileContextMenu
     file={file}
@@ -70,6 +89,8 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
     onDelete={() => {
       onDelete?.(file);
     }}
+    onCopyToInactivePane={onCopyToInactivePane}
+    onMoveToInactivePane={onMoveToInactivePane}
   >
     <div
       className={className}
@@ -99,28 +120,42 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   onRetry,
   onSelectionChange,
   onTogglePreview,
+  paneId = 'left',
+  paneLabel = 'File explorer',
+  isActivePane,
+  selectedIndex: selectedIndexProp,
+  viewMode: viewModeProp,
+  sortBy: sortByProp,
+  sortOrder: sortOrderProp,
+  onSelectedIndexChange,
+  onViewModeChange,
+  onSortChange,
+  onActivatePane,
+  onCopyToInactivePane,
+  onMoveToInactivePane,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [internalSelectedIndex, setInternalSelectedIndex] = useState<number>(0);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
 
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('list');
 
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [internalSortBy, setInternalSortBy] = useState<SortOption>('name');
+  const [internalSortOrder, setInternalSortOrder] = useState<SortOrder>('asc');
+
+  const active = isActivePane ?? true;
+  const selectedIndex = selectedIndexProp ?? internalSelectedIndex;
+  const viewMode = viewModeProp ?? internalViewMode;
+  const sortBy = sortByProp ?? internalSortBy;
+  const sortOrder = sortOrderProp ?? internalSortOrder;
 
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
-
-  React.useEffect(() => {
-    setCurrentPage(1);
-    setSelectedIndex(0);
-  }, [initialFiles, currentPath, sortBy, sortOrder]);
 
   const sortedFiles = useMemo(() => {
     if (isSearchActive) {
@@ -212,6 +247,56 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setDeleteDialogOpen(true);
   };
 
+  const setSelectedIndex = (nextIndex: number | ((currentIndex: number) => number)) => {
+    const next = typeof nextIndex === 'function' ? nextIndex(selectedIndex) : nextIndex;
+
+    if (next === selectedIndex) {
+      return;
+    }
+
+    if (selectedIndexProp === undefined) {
+      setInternalSelectedIndex(next);
+    }
+
+    onSelectedIndexChange?.(next);
+  };
+
+  const setViewMode = (nextViewMode: ViewMode) => {
+    if (nextViewMode === viewMode) {
+      return;
+    }
+
+    if (viewModeProp === undefined) {
+      setInternalViewMode(nextViewMode);
+    }
+
+    onViewModeChange?.(nextViewMode);
+  };
+
+  const setSort = (nextSortBy: SortOption, nextSortOrder: SortOrder) => {
+    if (nextSortBy === sortBy && nextSortOrder === sortOrder) {
+      return;
+    }
+
+    if (sortByProp === undefined) {
+      setInternalSortBy(nextSortBy);
+    }
+    if (sortOrderProp === undefined) {
+      setInternalSortOrder(nextSortOrder);
+    }
+
+    onSortChange?.(nextSortBy, nextSortOrder);
+  };
+
+  const activatePane = () => {
+    onActivatePane?.(paneId);
+  };
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIndex(0);
+  }, [initialFiles, currentPath, sortBy, sortOrder]);
+
   const handleSelect = (index: number) => {
     setSelectedIndex(index);
   };
@@ -250,6 +335,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   React.useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
+      if (!active) return;
+
       if (
         document.activeElement?.tagName === 'INPUT' ||
         document.activeElement?.tagName === 'TEXTAREA'
@@ -291,7 +378,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, visibleFiles, currentPath]);
+  }, [active, selectedIndex, visibleFiles, currentPath]);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return '-';
@@ -321,10 +408,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
 
     if (sortBy === option) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSort(option, sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortBy(option);
-      setSortOrder('asc');
+      setSort(option, 'asc');
     }
   };
 
@@ -386,7 +472,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="relative mx-auto w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
+    <div
+      className="relative mx-auto w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
+      data-testid={`file-pane-${paneId}`}
+      data-active-pane={active}
+      tabIndex={0}
+      aria-label={paneLabel}
+      onFocus={activatePane}
+      onClick={activatePane}
+    >
       <div className="sticky top-0 z-10 border-b border-border bg-card">
         <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath}>
           <div className="flex items-center gap-1 rounded-full border border-border-visible bg-transparent p-0.5">
@@ -494,6 +588,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onRename={onRenameItem ? openRenameDialog : undefined}
                   onDelete={onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
+                  onCopyToInactivePane={onCopyToInactivePane}
+                  onMoveToInactivePane={onMoveToInactivePane}
                   className={`group/file-row grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border items-center cursor-pointer transition-colors duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-l-2 border-l-accent bg-muted text-foreground hover:bg-muted'
@@ -546,6 +642,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onRename={onRenameItem ? openRenameDialog : undefined}
                   onDelete={onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
+                  onCopyToInactivePane={onCopyToInactivePane}
+                  onMoveToInactivePane={onMoveToInactivePane}
                   className={`group/file-tile flex flex-col items-center justify-center rounded-xl border p-4 cursor-pointer transition-[background-color,border-color] duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-t-2 border-t-accent bg-muted border-foreground hover:bg-muted hover:border-foreground'

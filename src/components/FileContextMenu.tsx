@@ -14,6 +14,8 @@ interface FileContextMenuProps {
   onOpen: (file: FileItem) => void;
   onRename?: (file: FileItem) => void;
   onDelete?: (file: FileItem) => void;
+  onCopyToInactivePane?: (file: FileItem) => void;
+  onMoveToInactivePane?: (file: FileItem) => void;
 }
 
 export const FileContextMenu: React.FC<FileContextMenuProps> = ({
@@ -22,7 +24,11 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
   onOpen,
   onRename,
   onDelete,
+  onCopyToInactivePane,
+  onMoveToInactivePane,
 }) => {
+  const hasTransferActions = onCopyToInactivePane || onMoveToInactivePane;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -39,6 +45,17 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
         >
           Copiar ruta
         </ContextMenuItem>
+        {hasTransferActions && <ContextMenuSeparator />}
+        {onCopyToInactivePane && (
+          <ContextMenuItem onClick={() => onCopyToInactivePane(file)}>
+            Copiar al otro panel
+          </ContextMenuItem>
+        )}
+        {onMoveToInactivePane && (
+          <ContextMenuItem onClick={() => onMoveToInactivePane(file)}>
+            Mover al otro panel
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={() => {
