@@ -1,10 +1,12 @@
-import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { FileItem } from "./components/file-types";
 
 let selectionHandler: ((item: FileItem | null) => void) | undefined;
 let togglePreviewHandler: (() => void) | undefined;
+let requestAnimationFrameSpy: { mockRestore: () => void };
+let cancelAnimationFrameSpy: { mockRestore: () => void };
 
 vi.mock("./hooks/use-file-navigation", () => ({
   useFileNavigation: () => ({
@@ -75,7 +77,32 @@ vi.mock("./components/FileExplorer", () => ({
   },
 }));
 
+function finishPreviewOpenAnimation() {
+  act(() => {
+    fireEvent.transitionEnd(screen.getByText("Preview").closest("aside") as HTMLElement, {
+      propertyName: "width",
+    });
+  });
+}
+
 describe("App preview panel", () => {
+  beforeEach(() => {
+    requestAnimationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+    cancelAnimationFrameSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    requestAnimationFrameSpy.mockRestore();
+    cancelAnimationFrameSpy.mockRestore();
+  });
+
   it("starts with the file tree and preview panel closed", () => {
     render(<App />);
 
@@ -158,10 +185,20 @@ describe("App preview panel", () => {
     });
 
     expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.queryByText("preview ready: report.pdf")).not.toBeInTheDocument();
+
+    finishPreviewOpenAnimation();
+
     expect(screen.getByText("preview ready: report.pdf")).toBeInTheDocument();
 
     act(() => {
       togglePreviewHandler?.();
+    });
+
+    act(() => {
+      fireEvent.transitionEnd(screen.getByText("Preview").closest("aside") as HTMLElement, {
+        propertyName: "width",
+      });
     });
 
     act(() => {
@@ -193,6 +230,8 @@ describe("App preview panel", () => {
     act(() => {
       togglePreviewHandler?.();
     });
+
+    finishPreviewOpenAnimation();
 
     expect(screen.getByText("preview ready: report.pdf")).toBeInTheDocument();
 

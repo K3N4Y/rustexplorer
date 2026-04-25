@@ -29,6 +29,7 @@ function App() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewContentReady, setPreviewContentReady] = useState(false);
   const {
     canGoBack,
     canGoForward,
@@ -82,7 +83,7 @@ function App() {
     error: previewError,
   } = usePreview({
     selectedItem,
-    previewOpen,
+    previewOpen: previewOpen && previewContentReady,
   });
 
   const handleSelectionChange = (item: FileItem | null) => {
@@ -216,6 +217,7 @@ function App() {
               payload={payload}
               isLoading={isPreviewLoading}
               error={previewError}
+              onContentReadyChange={setPreviewContentReady}
             />
           </div>
         </main>
