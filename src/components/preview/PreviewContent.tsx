@@ -1,7 +1,6 @@
 import AudioRenderer from "./renderers/AudioRenderer";
 import BinaryRenderer from "./renderers/BinaryRenderer";
 import DirectoryRenderer from "./renderers/DirectoryRenderer";
-import ErrorRenderer from "./renderers/ErrorRenderer";
 import ImageRenderer from "./renderers/ImageRenderer";
 import MarkdownRenderer from "./renderers/MarkdownRenderer";
 import PdfRenderer from "./renderers/PdfRenderer";
@@ -27,7 +26,5 @@ export default function PreviewContent({ payload }: { payload: PreviewPayload })
       return <DirectoryRenderer payload={payload} />;
     case "binary":
       return <BinaryRenderer payload={payload} />;
-    case "error":
-      return <ErrorRenderer payload={payload} />;
   }
 }

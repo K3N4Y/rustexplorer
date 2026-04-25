@@ -71,9 +71,6 @@ enum PreviewPayload {
         size_bytes: u64,
         reason: Option<String>,
     },
-    Error {
-        message: String,
-    },
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -331,6 +328,12 @@ fn read_limited_text_preview<R: Read>(
 
     if truncated {
         bytes.truncate(preview_limit);
+
+        if let Err(err) = std::str::from_utf8(&bytes) {
+            if err.error_len().is_none() {
+                bytes.truncate(err.valid_up_to());
+            }
+        }
     }
 
     let content = String::from_utf8_lossy(&bytes).to_string();
@@ -592,6 +595,15 @@ mod tests {
 
         fs::remove_file(&file_path).unwrap();
         fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn read_limited_text_preview_truncates_at_utf8_boundary() {
+        let bytes = [b'a', 0xc3, 0xa1];
+        let (content, truncated) = read_limited_text_preview(bytes.as_slice(), 2).unwrap();
+
+        assert_eq!(content, "a");
+        assert!(truncated);
     }
 
     #[test]

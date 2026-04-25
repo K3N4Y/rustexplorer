@@ -46,8 +46,4 @@ export type PreviewPayload =
       mimeType?: string;
       sizeBytes: number;
       reason?: string;
-    }
-  | {
-      type: "error";
-      message: string;
     };

@@ -128,12 +128,4 @@ describe("PreviewContent", () => {
     expect(screen.getByText("Tamaño: 99 bytes")).toBeInTheDocument();
     expect(screen.getByText(/unsupported/i)).toBeInTheDocument();
   });
-
-  it("routes error payloads", () => {
-    render(
-      <PreviewContent payload={{ type: "error", message: "boom" }} />
-    );
-
-    expect(screen.getByText("boom")).toBeInTheDocument();
-  });
 });

@@ -72,16 +72,8 @@ function normalizePreviewPayload(payload: unknown): PreviewPayload {
         sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
         reason: (value.reason as string | undefined) ?? undefined,
       };
-    case "error":
-      return {
-        type: "error",
-        message: String(value.message ?? "Error al cargar preview."),
-      };
     default:
-      return {
-        type: "error",
-        message: "Preview con formato no soportado.",
-      };
+      throw new Error("Preview con formato no soportado.");
   }
 }
 
