@@ -1,5 +1,5 @@
 import { InputGroupDemo } from "./components/SearchBar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -103,8 +103,16 @@ function App() {
     await navigateToPath(parentPath);
   };
 
+  const refreshPane = useCallback(
+    async (paneId: PaneId) => {
+      const pane = paneId === "left" ? leftPane : rightPane;
+      await pane.navigateToPath(pane.currentPath, { recordHistory: false });
+    },
+    [leftPane, rightPane],
+  );
+
   const handleRefresh = async () => {
-    await navigateToPath(currentPath, { recordHistory: false });
+    await refreshPane(activePane);
   };
 
   useEffect(() => {
@@ -191,14 +199,89 @@ function App() {
     }
   };
 
-  const handleClipboardAction = (sourcePane: PaneId, mode: TransferMode, item: FileItem) => {
+  const performTransfer = useCallback(
+    async (mode: TransferMode, sourcePaneId: PaneId, destinationPaneId: PaneId, item: FileItem) => {
+      const destinationPane = destinationPaneId === "left" ? leftPane : rightPane;
+
+      setOperationError(null);
+
+      try {
+        if (mode === "copy") {
+          await destinationPane.copyItemToDirectory(item, destinationPane.currentPath);
+          await refreshPane(destinationPaneId);
+          return true;
+        }
+
+        await destinationPane.moveItemToDirectory(item, destinationPane.currentPath);
+        await refreshPane(sourcePaneId);
+        await refreshPane(destinationPaneId);
+        return true;
+      } catch (error) {
+        console.error(`Unable to ${mode} item between panes:`, error);
+        setOperationError(`No se pudo ${mode === "copy" ? "copiar" : "mover"} este elemento. Intenta de nuevo.`);
+        return false;
+      }
+    },
+    [leftPane, refreshPane, rightPane],
+  );
+
+  const handleClipboardAction = useCallback((sourcePane: PaneId, mode: TransferMode, item: FileItem) => {
     setInternalClipboard({ sourcePane, mode, item });
     setOperationError(null);
-  };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const selectedItem = paneUi[activePane].selectedItem;
+      const inactivePane = activePane === "left" ? "right" : "left";
+
+      if (event.key === "F5" && dualMode && selectedItem) {
+        event.preventDefault();
+        void performTransfer("copy", activePane, inactivePane, selectedItem);
+        return;
+      }
+
+      if (event.key === "F6" && dualMode && selectedItem) {
+        event.preventDefault();
+        void performTransfer("move", activePane, inactivePane, selectedItem);
+        return;
+      }
+
+      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if ((key === "c" || key === "x") && dualMode && selectedItem) {
+        event.preventDefault();
+        handleClipboardAction(activePane, key === "c" ? "copy" : "move", selectedItem);
+        return;
+      }
+
+      if (key === "v" && dualMode && internalClipboard) {
+        event.preventDefault();
+        void performTransfer(internalClipboard.mode, internalClipboard.sourcePane, activePane, internalClipboard.item).then((success) => {
+          if (success && internalClipboard.mode === "move") {
+            setInternalClipboard(null);
+          }
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activePane, dualMode, handleClipboardAction, internalClipboard, paneUi, performTransfer]);
 
   const renderFilePane = (paneId: PaneId, paneLabel: string) => {
     const pane = paneId === "left" ? leftPane : rightPane;
     const ui = paneUi[paneId];
+    const inactivePane = paneId === "left" ? "right" : "left";
 
     return (
       <div
@@ -232,8 +315,8 @@ function App() {
           onViewModeChange={(viewMode) => handleViewModeChange(paneId, viewMode)}
           onSortChange={(sortBy, sortOrder) => handleSortChange(paneId, sortBy, sortOrder)}
           onActivatePane={setActivePane}
-          onCopyToInactivePane={dualMode ? (item) => handleClipboardAction(paneId, "copy", item) : undefined}
-          onMoveToInactivePane={dualMode ? (item) => handleClipboardAction(paneId, "move", item) : undefined}
+          onCopyToInactivePane={dualMode ? (item) => void performTransfer("copy", paneId, inactivePane, item) : undefined}
+          onMoveToInactivePane={dualMode ? (item) => void performTransfer("move", paneId, inactivePane, item) : undefined}
         />
       </div>
     );

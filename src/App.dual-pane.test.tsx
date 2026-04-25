@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { FileItem } from "./components/file-types";
 
@@ -17,29 +17,27 @@ type FileExplorerMockProps = {
   onMoveToInactivePane?: (item: FileItem) => void;
 };
 
-const desktopRoot = "C:\\Users\\kenay\\OneDrive\\Desktop";
-
-const alphaFile: FileItem = {
-  name: "alpha.txt",
-  path: `${desktopRoot}\\alpha.txt`,
-  size: 10,
-  modified: null,
-  isDirectory: false,
-};
-
-const betaFile: FileItem = {
-  name: "beta.txt",
-  path: `${desktopRoot}\\beta.txt`,
-  size: 20,
-  modified: null,
-  isDirectory: false,
-};
-
-vi.mock("./hooks/use-file-navigation", () => ({
-  useFileNavigation: () => ({
+const navigationMock = vi.hoisted(() => {
+  const desktopRoot = "C:\\Users\\kenay\\OneDrive\\Desktop";
+  const alphaFile = {
+    name: "alpha.txt",
+    path: `${desktopRoot}\\alpha.txt`,
+    size: 10,
+    modified: null,
+    isDirectory: false,
+  };
+  const betaFile = {
+    name: "beta.txt",
+    path: `${desktopRoot}\\beta.txt`,
+    size: 20,
+    modified: null,
+    isDirectory: false,
+  };
+  const createPane = () => ({
     canGoBack: false,
     canGoForward: false,
     canGoUp: false,
+    copyItemToDirectory: vi.fn().mockResolvedValue(undefined),
     currentPath: desktopRoot,
     deleteItem: vi.fn(),
     errorMessage: null,
@@ -50,11 +48,34 @@ vi.mock("./hooks/use-file-navigation", () => ({
     loadFolder: vi.fn().mockResolvedValue([alphaFile, betaFile]),
     navigateToPath: vi.fn().mockResolvedValue(undefined),
     parentPath: "C:\\Users\\kenay\\OneDrive",
+    moveItemToDirectory: vi.fn().mockResolvedValue(undefined),
     renameItem: vi.fn(),
     setCurrentPath: vi.fn(),
     setFiles: vi.fn(),
     setHistoryIndex: vi.fn(),
-  }),
+  });
+
+  return {
+    alphaFile,
+    betaFile,
+    callCount: 0,
+    desktopRoot,
+    leftPane: createPane(),
+    rightPane: createPane(),
+  };
+});
+
+const desktopRoot = navigationMock.desktopRoot;
+
+const alphaFile = navigationMock.alphaFile as FileItem;
+const betaFile = navigationMock.betaFile as FileItem;
+
+vi.mock("./hooks/use-file-navigation", () => ({
+  useFileNavigation: () => {
+    const pane = navigationMock.callCount % 2 === 0 ? navigationMock.leftPane : navigationMock.rightPane;
+    navigationMock.callCount += 1;
+    return pane;
+  },
 }));
 
 vi.mock("./hooks/usePreview", () => ({
@@ -160,6 +181,21 @@ vi.mock("./components/FileExplorer", () => ({
 }));
 
 describe("App dual-pane lifecycle", () => {
+  beforeEach(() => {
+    navigationMock.callCount = 0;
+    for (const pane of [navigationMock.leftPane, navigationMock.rightPane]) {
+      pane.copyItemToDirectory.mockClear();
+      pane.deleteItem.mockClear();
+      pane.loadFolder.mockClear();
+      pane.moveItemToDirectory.mockClear();
+      pane.navigateToPath.mockClear();
+      pane.renameItem.mockClear();
+      pane.setCurrentPath.mockClear();
+      pane.setFiles.mockClear();
+      pane.setHistoryIndex.mockClear();
+    }
+  });
+
   it("renders single-pane by default", () => {
     render(<App />);
 
@@ -237,5 +273,70 @@ describe("App dual-pane lifecycle", () => {
     fireEvent.click(within(rightPane).getByRole("button", { name: "Activate right" }));
 
     expect(screen.getByText("Preview: beta.txt")).toBeInTheDocument();
+  });
+
+  it("copies the active selection to the inactive pane with F5", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+    const leftPane = screen.getByLabelText("Left file pane");
+
+    act(() => {
+      within(leftPane).getByRole("button", { name: "Select left" }).click();
+    });
+    fireEvent.keyDown(window, { key: "F5" });
+
+    await waitFor(() => {
+      expect(navigationMock.rightPane.copyItemToDirectory).toHaveBeenCalledWith(alphaFile, desktopRoot);
+    });
+    expect(navigationMock.rightPane.navigateToPath).toHaveBeenCalledWith(desktopRoot, { recordHistory: false });
+    expect(navigationMock.leftPane.moveItemToDirectory).not.toHaveBeenCalled();
+  });
+
+  it("moves the active selection to the inactive pane with F6", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+    const leftPane = screen.getByLabelText("Left file pane");
+
+    act(() => {
+      within(leftPane).getByRole("button", { name: "Select left" }).click();
+    });
+    fireEvent.keyDown(window, { key: "F6" });
+
+    await waitFor(() => {
+      expect(navigationMock.rightPane.moveItemToDirectory).toHaveBeenCalledWith(alphaFile, desktopRoot);
+    });
+    expect(navigationMock.leftPane.navigateToPath).toHaveBeenCalledWith(desktopRoot, { recordHistory: false });
+    expect(navigationMock.rightPane.navigateToPath).toHaveBeenCalledWith(desktopRoot, { recordHistory: false });
+  });
+
+  it("copies from the internal clipboard after switching panes", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+    const leftPane = screen.getByLabelText("Left file pane");
+    const rightPane = screen.getByLabelText("Right file pane");
+
+    act(() => {
+      within(leftPane).getByRole("button", { name: "Select left" }).click();
+    });
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    fireEvent.click(within(rightPane).getByRole("button", { name: "Activate right" }));
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+
+    await waitFor(() => {
+      expect(navigationMock.rightPane.copyItemToDirectory).toHaveBeenCalledWith(alphaFile, desktopRoot);
+    });
+    expect(navigationMock.rightPane.navigateToPath).toHaveBeenCalledWith(desktopRoot, { recordHistory: false });
+  });
+
+  it("does not render cross-pane drag-and-drop UI", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
+
+    expect(screen.queryByText(/drop files here/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cross-pane-drop-zone")).not.toBeInTheDocument();
   });
 });
