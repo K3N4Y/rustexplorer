@@ -581,6 +581,90 @@ mod tests {
     }
 
     #[test]
+    fn copy_file_copies_file_into_destination_directory() {
+        let source_dir = create_temp_dir("rustexplorer-copy-source");
+        let destination_dir = create_temp_dir("rustexplorer-copy-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("notes.txt");
+        fs::write(&source_path, b"copy me").unwrap();
+
+        copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read(&source_path).unwrap(), b"copy me");
+        assert_eq!(fs::read(&destination_path).unwrap(), b"copy me");
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn move_file_moves_file_into_destination_directory() {
+        let source_dir = create_temp_dir("rustexplorer-move-source");
+        let destination_dir = create_temp_dir("rustexplorer-move-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("notes.txt");
+        fs::write(&source_path, b"move me").unwrap();
+
+        move_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert!(!source_path.exists());
+        assert_eq!(fs::read(&destination_path).unwrap(), b"move me");
+
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn copy_file_rejects_duplicate_destination_without_overwriting() {
+        let source_dir = create_temp_dir("rustexplorer-copy-duplicate-source");
+        let destination_dir = create_temp_dir("rustexplorer-copy-duplicate-destination");
+        let source_path = source_dir.join("notes.txt");
+        let destination_path = destination_dir.join("notes.txt");
+        fs::write(&source_path, b"new content").unwrap();
+        fs::write(&destination_path, b"existing content").unwrap();
+
+        let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&destination_path).unwrap(), b"existing content");
+
+        fs::remove_file(&source_path).unwrap();
+        fs::remove_file(&destination_path).unwrap();
+        fs::remove_dir(&source_dir).unwrap();
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
+    fn copy_file_rejects_invalid_source_path() {
+        let destination_dir = create_temp_dir("rustexplorer-copy-invalid-source");
+        let source_path = destination_dir.join("missing.txt");
+
+        let result = copy_file(
+            source_path.to_string_lossy().to_string(),
+            destination_dir.to_string_lossy().to_string(),
+        );
+
+        assert!(result.is_err());
+        assert!(!destination_dir.join("missing.txt").exists());
+
+        fs::remove_dir(&destination_dir).unwrap();
+    }
+
+    #[test]
     fn read_file_preview_returns_directory_for_folder() {
         let temp_dir = create_temp_dir("rustexplorer-dir-preview");
 
