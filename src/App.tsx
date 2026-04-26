@@ -9,9 +9,10 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import "./App.css";
-import FileExplorer from "./components/FileExplorer";
+import FilePane from "./components/FilePane";
 import FileTreeSidebar from "./components/FileTreeSidebar";
 import type { FileItem } from "./components/file-types";
+import type { PaneId, PaneUiState, ViewMode, SortOption, SortOrder } from "./components/FilePane";
 import { useFileNavigation } from "./hooks/use-file-navigation";
 import { getPathLabel } from "./lib/path-utils";
 import { Button } from "./components/ui/button";
@@ -25,19 +26,7 @@ import { SettingsDialog } from "./components/settings-dialog";
 import PreviewPanel from "./components/preview/PreviewPanel";
 import { usePreview } from "./hooks/usePreview";
 
-type PaneId = "left" | "right";
 type TransferMode = "copy" | "move";
-type ViewMode = "list" | "grid";
-type SortOption = "name" | "modified" | "type" | "size";
-type SortOrder = "asc" | "desc";
-
-type PaneUiState = {
-  selectedItem: FileItem | null;
-  selectedIndex: number;
-  viewMode: ViewMode;
-  sortBy: SortOption;
-  sortOrder: SortOrder;
-};
 
 type InternalClipboard = {
   item: FileItem;
@@ -308,49 +297,7 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const renderFilePane = (paneId: PaneId, paneLabel: string) => {
-    const pane = paneId === "left" ? leftPane : rightPane;
-    const ui = paneUi[paneId];
-    const inactivePane = paneId === "left" ? "right" : "left";
 
-    return (
-      <div
-        data-testid={`file-list-scroll-region${paneId === "left" ? "" : "-right"}`}
-        className="scrollbar-hidden min-w-0 overflow-auto p-5"
-      >
-        <FileExplorer
-          initialFiles={pane.files}
-          initialPath={pane.currentPath}
-          isLoading={pane.isLoading}
-          isSearchActive={searchActivePane === paneId && activePane === paneId}
-          errorMessage={pane.errorMessage}
-          onLoadFolder={pane.loadFolder}
-          onRenameItem={pane.renameItem}
-          onDeleteItem={pane.deleteItem}
-          onRetry={() => pane.navigateToPath(pane.currentPath)}
-          onSelectionChange={(item) => handleSelectionChange(paneId, item)}
-          onTogglePreview={() => setPreviewOpen((prev) => !prev)}
-          onPathChange={(path, nextFiles) => {
-            pane.setCurrentPath(path);
-            pane.setFiles(nextFiles);
-          }}
-          paneId={paneId}
-          paneLabel={paneLabel}
-          isActivePane={activePane === paneId}
-          selectedIndex={ui.selectedIndex}
-          viewMode={ui.viewMode}
-          sortBy={ui.sortBy}
-          sortOrder={ui.sortOrder}
-          onSelectedIndexChange={(selectedIndex) => handleSelectedIndexChange(paneId, selectedIndex)}
-          onViewModeChange={(viewMode) => handleViewModeChange(paneId, viewMode)}
-          onSortChange={(sortBy, sortOrder) => handleSortChange(paneId, sortBy, sortOrder)}
-          onActivatePane={setActivePane}
-          onCopyToInactivePane={dualMode ? (item) => void performTransfer("copy", paneId, inactivePane, item) : undefined}
-          onMoveToInactivePane={dualMode ? (item) => void performTransfer("move", paneId, inactivePane, item) : undefined}
-        />
-      </div>
-    );
-  };
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -463,8 +410,40 @@ function App() {
               data-testid="pane-grid"
               className={`${dualMode ? "split-view-grid" : "single-pane-grid"} min-w-0 flex-1`}
             >
-              {renderFilePane("left", "Left file pane")}
-              {dualMode ? renderFilePane("right", "Right file pane") : null}
+              <FilePane
+                paneId="left"
+                paneLabel="Left file pane"
+                pane={leftPane}
+                ui={paneUi.left}
+                activePane={activePane}
+                searchActivePane={searchActivePane}
+                dualMode={dualMode}
+                onSelectionChange={handleSelectionChange}
+                onSelectedIndexChange={handleSelectedIndexChange}
+                onViewModeChange={handleViewModeChange}
+                onSortChange={handleSortChange}
+                setPreviewOpen={setPreviewOpen}
+                setActivePane={setActivePane}
+                performTransfer={performTransfer}
+              />
+              {dualMode ? (
+                <FilePane
+                  paneId="right"
+                  paneLabel="Right file pane"
+                  pane={rightPane}
+                  ui={paneUi.right}
+                  activePane={activePane}
+                  searchActivePane={searchActivePane}
+                  dualMode={dualMode}
+                  onSelectionChange={handleSelectionChange}
+                  onSelectedIndexChange={handleSelectedIndexChange}
+                  onViewModeChange={handleViewModeChange}
+                  onSortChange={handleSortChange}
+                  setPreviewOpen={setPreviewOpen}
+                  setActivePane={setActivePane}
+                  performTransfer={performTransfer}
+                />
+              ) : null}
               {operationError ? (
                 <p className="px-5 pb-3 text-sm text-destructive" role="alert">
                   {operationError}
