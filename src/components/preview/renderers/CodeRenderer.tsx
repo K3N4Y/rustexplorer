@@ -1,0 +1,59 @@
+import SyntaxHighlighter from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { github } from "react-syntax-highlighter/dist/esm/styles/hljs";
+import { useTheme } from "../../theme-provider";
+
+interface CodeRendererProps {
+  content: string;
+  language: string;
+  truncated: boolean;
+  sizeBytes: number;
+}
+
+function getIsDark(theme: string): boolean {
+  if (theme === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  return theme === "dark";
+}
+
+const CodeRenderer: React.FC<CodeRendererProps> = ({
+  content,
+  language,
+  truncated,
+}) => {
+  const { theme } = useTheme();
+  const isDark = getIsDark(theme);
+
+  return (
+    <div className="h-full flex flex-col rounded-md overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted border-b border-border">
+        <span className="text-[10px] font-mono uppercase text-muted-foreground">
+          {language}
+        </span>
+        {truncated && (
+          <span className="text-[10px] text-yellow-600">
+            Truncated
+          </span>
+        )}
+      </div>
+      <div className="flex-1 overflow-auto">
+        <SyntaxHighlighter
+          language={language}
+          style={isDark ? vscDarkPlus : github}
+          customStyle={{
+            margin: 0,
+            padding: "1rem",
+            fontSize: "13px",
+            borderRadius: 0,
+            background: "transparent",
+          }}
+        >
+          {content}
+        </SyntaxHighlighter>
+      </div>
+    </div>
+  );
+};
+
+export default CodeRenderer;
