@@ -16,6 +16,7 @@ use tauri::{Emitter, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
+const MAX_CSV_PREVIEW_ROWS: usize = 1000;
 const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
     ".cache",
     ".git",
@@ -385,7 +386,7 @@ fn is_markdown_extension(ext: &str) -> bool {
 }
 
 fn is_text_extension(ext: &str) -> bool {
-    matches!(ext, "txt")
+    matches!(ext, "txt" | "log" | "ini" | "conf" | "cfg")
 }
 
 fn is_image_extension(ext: &str) -> bool {
@@ -517,17 +518,17 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
             language: language_from_extension(ext).to_string(),
             content,
             truncated,
-            size_bytes: metadata.len(),
+            size_bytes,
         });
     }
     if ext.eq_ignore_ascii_case("csv") {
         let (content, truncated) = read_text_preview(target, preview_limit)?;
-        match parse_csv_preview(&content, 1000) {
+        match parse_csv_preview(&content, MAX_CSV_PREVIEW_ROWS) {
             Ok((headers, rows, csv_truncated)) => {
-                return Ok(PreviewPayload::Csv { headers, rows, truncated: truncated || csv_truncated, size_bytes: metadata.len() });
+                return Ok(PreviewPayload::Csv { headers, rows, truncated: truncated || csv_truncated, size_bytes });
             }
             Err(_) => {
-                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes: metadata.len(), reason: Some("CSV malformed, showing as text".to_string()) });
+                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes, reason: Some("CSV malformed, showing as text".to_string()) });
             }
         }
     }
@@ -535,10 +536,10 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         let (content, truncated) = read_text_preview(target, preview_limit)?;
         match parse_json_preview(&content) {
             Ok((pretty, is_array)) => {
-                return Ok(PreviewPayload::Json { content: pretty, is_array, truncated, size_bytes: metadata.len() });
+                return Ok(PreviewPayload::Json { content: pretty, is_array, truncated, size_bytes });
             }
             Err(_) => {
-                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes: metadata.len(), reason: Some("Invalid JSON, showing as text".to_string()) });
+                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes, reason: Some("Invalid JSON, showing as text".to_string()) });
             }
         }
     }
@@ -665,33 +666,31 @@ fn should_search_entry(entry: &ignore::DirEntry) -> bool {
 }
 
 fn language_from_extension(ext: &str) -> &'static str {
-    match ext {
-        "rs" => "rust",
-        "ts" | "tsx" => "typescript",
-        "js" | "jsx" => "javascript",
-        "py" => "python",
-        "go" => "go",
-        "c" | "h" => "c",
-        "cpp" | "cc" | "cxx" | "hpp" => "cpp",
-        "java" => "java",
-        "cs" => "csharp",
-        "rb" => "ruby",
-        "php" => "php",
-        "swift" => "swift",
-        "kt" => "kotlin",
-        "scala" => "scala",
-        "sh" | "bash" => "bash",
-        "ps1" => "powershell",
-        "sql" => "sql",
-        "html" | "htm" => "html",
-        "css" => "css",
-        "scss" | "sass" => "scss",
-        "xml" => "xml",
-        "yaml" | "yml" => "yaml",
-        "toml" => "toml",
-        "dockerfile" => "dockerfile",
-        _ => "plaintext",
-    }
+    if ext.eq_ignore_ascii_case("rs") { return "rust"; }
+    if ext.eq_ignore_ascii_case("ts") || ext.eq_ignore_ascii_case("tsx") { return "typescript"; }
+    if ext.eq_ignore_ascii_case("js") || ext.eq_ignore_ascii_case("jsx") { return "javascript"; }
+    if ext.eq_ignore_ascii_case("py") { return "python"; }
+    if ext.eq_ignore_ascii_case("go") { return "go"; }
+    if ext.eq_ignore_ascii_case("c") || ext.eq_ignore_ascii_case("h") { return "c"; }
+    if ext.eq_ignore_ascii_case("cpp") || ext.eq_ignore_ascii_case("cc") || ext.eq_ignore_ascii_case("cxx") || ext.eq_ignore_ascii_case("hpp") { return "cpp"; }
+    if ext.eq_ignore_ascii_case("java") { return "java"; }
+    if ext.eq_ignore_ascii_case("cs") { return "csharp"; }
+    if ext.eq_ignore_ascii_case("rb") { return "ruby"; }
+    if ext.eq_ignore_ascii_case("php") { return "php"; }
+    if ext.eq_ignore_ascii_case("swift") { return "swift"; }
+    if ext.eq_ignore_ascii_case("kt") { return "kotlin"; }
+    if ext.eq_ignore_ascii_case("scala") { return "scala"; }
+    if ext.eq_ignore_ascii_case("sh") || ext.eq_ignore_ascii_case("bash") { return "bash"; }
+    if ext.eq_ignore_ascii_case("ps1") { return "powershell"; }
+    if ext.eq_ignore_ascii_case("sql") { return "sql"; }
+    if ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm") { return "html"; }
+    if ext.eq_ignore_ascii_case("css") { return "css"; }
+    if ext.eq_ignore_ascii_case("scss") || ext.eq_ignore_ascii_case("sass") { return "scss"; }
+    if ext.eq_ignore_ascii_case("xml") { return "xml"; }
+    if ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml") { return "yaml"; }
+    if ext.eq_ignore_ascii_case("toml") { return "toml"; }
+    if ext.eq_ignore_ascii_case("dockerfile") { return "dockerfile"; }
+    "plaintext"
 }
 
 fn parse_csv_preview(content: &str, max_rows: usize) -> Result<(Vec<String>, Vec<Vec<String>>, bool), csv::Error> {
