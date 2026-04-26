@@ -17,6 +17,11 @@ use tauri::{Emitter, Window};
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
 const MAX_CSV_PREVIEW_ROWS: usize = 1000;
+const CODE_EXTS: &[&str] = &[
+    "rs", "ts", "tsx", "js", "jsx", "py", "go", "c", "h", "cpp", "cc", "cxx", "hpp",
+    "java", "cs", "rb", "php", "swift", "kt", "scala", "sh", "bash", "ps1", "sql",
+    "html", "htm", "css", "scss", "sass", "xml", "yaml", "yml", "toml", "dockerfile",
+];
 const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
     ".cache",
     ".git",
@@ -511,8 +516,7 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
     }
 
     let ext = target.extension().and_then(|e| e.to_str()).unwrap_or("");
-    let code_exts = ["rs", "ts", "tsx", "js", "jsx", "py", "go", "c", "h", "cpp", "cc", "cxx", "hpp", "java", "cs", "rb", "php", "swift", "kt", "scala", "sh", "bash", "ps1", "sql", "html", "htm", "css", "scss", "sass", "xml", "yaml", "yml", "toml", "dockerfile"];
-    if code_exts.contains(&ext.to_lowercase().as_str()) {
+    if CODE_EXTS.iter().any(|&e| e.eq_ignore_ascii_case(ext)) {
         let (content, truncated) = read_text_preview(target, preview_limit)?;
         return Ok(PreviewPayload::Code {
             language: language_from_extension(ext).to_string(),
@@ -1371,7 +1375,7 @@ mod tests {
         #[test]
         fn parse_csv_preview_parses_headers_and_rows() {
             let csv = "name,age\nAlice,30\nBob,25";
-            let (headers, rows, truncated) = parse_csv_preview(csv, 1000).unwrap();
+            let (headers, rows, truncated) = parse_csv_preview(csv, MAX_CSV_PREVIEW_ROWS).unwrap();
             assert_eq!(headers, vec!["name", "age"]);
             assert_eq!(rows, vec![vec!["Alice", "30"], vec!["Bob", "25"]]);
             assert!(!truncated);
@@ -1389,7 +1393,7 @@ mod tests {
         #[test]
         fn parse_csv_preview_returns_err_for_malformed_csv() {
             let csv = "a,b\n\"unclosed";
-            assert!(parse_csv_preview(csv, 1000).is_err());
+            assert!(parse_csv_preview(csv, MAX_CSV_PREVIEW_ROWS).is_err());
         }
 
         #[test]
