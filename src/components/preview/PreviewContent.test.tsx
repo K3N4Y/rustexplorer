@@ -13,6 +13,20 @@ vi.mock("@tauri-apps/api/core", async () => {
   };
 });
 
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 describe("PreviewContent", () => {
   it("routes text payloads", () => {
     render(
@@ -127,5 +141,51 @@ describe("PreviewContent", () => {
 
     expect(screen.getByText("Tamaño: 99 bytes")).toBeInTheDocument();
     expect(screen.getByText(/unsupported/i)).toBeInTheDocument();
+  });
+
+  it("routes code payloads", () => {
+    render(
+      <PreviewContent
+        payload={{
+          type: "code",
+          content: "fn main() {}",
+          language: "rust",
+          truncated: false,
+          sizeBytes: 100,
+        }}
+      />
+    );
+    expect(screen.getByText("rust")).toBeInTheDocument();
+  });
+
+  it("routes csv payloads", () => {
+    render(
+      <PreviewContent
+        payload={{
+          type: "csv",
+          headers: ["A", "B"],
+          rows: [["1", "2"]],
+          truncated: false,
+          sizeBytes: 50,
+        }}
+      />
+    );
+    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("routes json payloads", () => {
+    render(
+      <PreviewContent
+        payload={{
+          type: "json",
+          content: "{}",
+          isArray: false,
+          truncated: false,
+          sizeBytes: 10,
+        }}
+      />
+    );
+    expect(screen.getByText("JSON Object")).toBeInTheDocument();
   });
 });

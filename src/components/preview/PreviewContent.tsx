@@ -6,6 +6,9 @@ import MarkdownRenderer from "./renderers/MarkdownRenderer";
 import PdfRenderer from "./renderers/PdfRenderer";
 import TextRenderer from "./renderers/TextRenderer";
 import VideoRenderer from "./renderers/VideoRenderer";
+import CodeRenderer from "./renderers/CodeRenderer";
+import CsvRenderer from "./renderers/CsvRenderer";
+import JsonRenderer from "./renderers/JsonRenderer";
 import type { PreviewPayload } from "./types";
 
 export default function PreviewContent({ payload }: { payload: PreviewPayload }) {
@@ -26,5 +29,11 @@ export default function PreviewContent({ payload }: { payload: PreviewPayload })
       return <DirectoryRenderer payload={payload} />;
     case "binary":
       return <BinaryRenderer payload={payload} />;
+    case "code":
+      return <CodeRenderer payload={payload} />;
+    case "csv":
+      return <CsvRenderer payload={payload} />;
+    case "json":
+      return <JsonRenderer payload={payload} />;
   }
 }
