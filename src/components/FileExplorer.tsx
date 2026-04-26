@@ -1,26 +1,24 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { openPath } from '@tauri-apps/plugin-opener';
 import {
   AlertCircle,
-  File as FileIcon,
-  Folder as FolderIcon,
   FolderOpen,
   LoaderCircle,
   RefreshCcw,
-  ArrowUp,
-  ArrowDown,
   LayoutGrid,
   List
 } from 'lucide-react';
 import BreadcrumbPath from './BreadcrumbPath';
 import type { FileItem } from './file-types';
-import { FileContextMenu } from './FileContextMenu';
 import { RenameDialog } from './RenameDialog';
 import { DeleteAlertDialog } from './DeleteAlertDialog';
 
 import { getFileAppearance } from '../lib/file-appearance';
 import { getParentPath } from '../lib/path-utils';
 import { useSettings } from '../lib/settings-provider';
+import FileItemShell from './FileItemShell';
+import FileIconComponent from './FileIcon';
+import SortIcon from './SortIcon';
 
 interface FileExplorerProps {
   initialFiles: FileItem[];
@@ -55,57 +53,13 @@ type SortOption = 'name' | 'modified' | 'type' | 'size';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'list' | 'grid';
 
-interface FileItemShellProps {
-  file: FileItem;
-  index: number;
-  className: string;
-  children: React.ReactNode;
-  onOpen: (item: FileItem) => Promise<void>;
-  onRename?: (item: FileItem) => void;
-  onDelete?: (item: FileItem) => void;
-  onSelect: (index: number) => void;
-  onCopyToInactivePane?: (item: FileItem) => void;
-  onMoveToInactivePane?: (item: FileItem) => void;
-}
+const toOpenablePath = (path: string): string => {
+  if (!/^[a-zA-Z]:\\/.test(path)) {
+    return path;
+  }
 
-const FileItemShell: React.FC<FileItemShellProps> = ({
-  file,
-  index,
-  className,
-  children,
-  onOpen,
-  onRename,
-  onDelete,
-  onSelect,
-  onCopyToInactivePane,
-  onMoveToInactivePane,
-}) => (
-  <FileContextMenu
-    file={file}
-    onOpen={(item) => void onOpen(item)}
-    onRename={() => {
-      onRename?.(file);
-    }}
-    onDelete={() => {
-      onDelete?.(file);
-    }}
-    onCopyToInactivePane={onCopyToInactivePane}
-    onMoveToInactivePane={onMoveToInactivePane}
-  >
-    <div
-      className={className}
-      onClick={() => {
-        onSelect(index);
-      }}
-      onDoubleClick={() => {
-        onSelect(index);
-        void onOpen(file);
-      }}
-    >
-      {children}
-    </div>
-  </FileContextMenu>
-);
+  return path.replace(/\\/g, '/');
+};
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
@@ -206,24 +160,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
-  const navigateToPath = async (path: string) => {
+  const navigateToPath = useCallback(async (path: string) => {
     try {
       const nextFiles = await onLoadFolder(path);
       onPathChange?.(path, nextFiles);
     } catch (error) {
       console.error('Error loading folder:', error);
     }
-  };
+  }, [onLoadFolder, onPathChange]);
 
-  const toOpenablePath = (path: string): string => {
-    if (!/^[a-zA-Z]:\\/.test(path)) {
-      return path;
-    }
-
-    return path.replace(/\\/g, '/');
-  };
-
-  const openItem = async (item: FileItem) => {
+  const openItem = useCallback(async (item: FileItem) => {
     if (isFolder(item)) {
       await navigateToPath(item.path);
       return;
@@ -234,18 +180,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     } catch (error) {
       console.error('Error opening file:', error);
     }
-  };
+  }, [navigateToPath]);
 
-  const openRenameDialog = (file: FileItem) => {
+  const openRenameDialog = useCallback((file: FileItem) => {
     setFileToRename(file);
     setNewFileName(file.name);
     setRenameDialogOpen(true);
-  };
+  }, []);
 
-  const openDeleteDialog = (file: FileItem) => {
+  const openDeleteDialog = useCallback((file: FileItem) => {
     setFileToDelete(file);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
   const setSelectedIndex = (nextIndex: number | ((currentIndex: number) => number)) => {
     const next = typeof nextIndex === 'function' ? nextIndex(selectedIndex) : nextIndex;
@@ -288,18 +234,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     onSortChange?.(nextSortBy, nextSortOrder);
   };
 
-  const activatePane = () => {
+  const activatePane = useCallback(() => {
     onActivatePane?.(paneId);
-  };
+  }, [onActivatePane, paneId]);
 
   React.useEffect(() => {
     setCurrentPage(1);
     setSelectedIndex(0);
   }, [initialFiles, currentPath, sortBy, sortOrder]);
 
-  const handleSelect = (index: number) => {
+  const handleSelect = useCallback((index: number) => {
     setSelectedIndex(index);
-  };
+  }, []);
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,62 +360,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
   };
 
-  const SortIcon = ({ option }: { option: SortOption }) => {
-    if (isSearchActive) return null;
-    if (sortBy !== option) return null;
-    return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />;
-  };
-
   const sortHeaderClassName = isSearchActive
     ? 'flex items-center text-muted-foreground/55'
     : 'flex items-center cursor-pointer rounded-sm transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25';
-
-  const renderFileIcon = (file: FileItem, selected: boolean, size: 'sm' | 'lg') => {
-    const appearance = getFileAppearance(file);
-    const dimensionClassName = size === 'sm' ? 'h-7 w-7 rounded-md' : 'h-14 w-14 rounded-xl';
-    const iconSizeClassName = size === 'sm' ? 'h-4 w-4' : 'h-7 w-7';
-
-    if (file.isDirectory) {
-      return (
-        <div
-          className={`relative flex items-center justify-center border ${dimensionClassName} ${
-            selected
-              ? 'bg-transparent text-foreground border-foreground'
-              : 'bg-transparent text-muted-foreground border-border-visible'
-          }`}
-        >
-          <FolderIcon
-            className={size === 'sm' ? 'h-4 w-4' : 'h-7 w-7'}
-            strokeWidth={2.2}
-            aria-hidden="true"
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div
-        className={`relative flex items-center justify-center border bg-transparent text-muted-foreground ${dimensionClassName} ${
-          selected ? 'border-foreground text-foreground' : 'border-border-visible'
-        }`}
-      >
-        {appearance.iconSrc ? (
-          <img
-            src={appearance.iconSrc}
-            alt=""
-            className={size === 'sm' ? 'h-5 w-5' : 'h-10 w-10'}
-            draggable={false}
-          />
-        ) : (
-          <FileIcon
-            className={`${iconSizeClassName} ${selected ? 'text-primary' : 'text-muted-foreground'}`}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-        )}
-      </div>
-    );
-  };
 
   return (
     <div
@@ -508,16 +401,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         {viewMode === 'list' && (
           <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground select-none">
             <span className={sortHeaderClassName} onClick={() => handleSort('name')}>
-              Name <SortIcon option="name" />
+              Name <SortIcon option="name" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('modified')}>
-              Modified <SortIcon option="modified" />
+              Modified <SortIcon option="modified" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('type')}>
-              Type <SortIcon option="type" />
+              Type <SortIcon option="type" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('size')}>
-              Size <SortIcon option="size" />
+              Size <SortIcon option="size" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
             </span>
           </div>
         )}
@@ -597,7 +490,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-3 truncate">
-                    {renderFileIcon(file, isSelected, 'sm')}
+                    <FileIconComponent file={file} selected={isSelected} size="sm" />
                     <span className={`truncate leading-tight ${isSelected ? 'text-sm font-medium text-foreground' : 'text-sm font-medium text-foreground/90'}`}>{file.name}</span>
                   </div>
 
@@ -651,7 +544,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   }`}
                 >
                   <div className="mb-3.5 relative">
-                    {renderFileIcon(file, isSelected, 'lg')}
+                    <FileIconComponent file={file} selected={isSelected} size="lg" />
                   </div>
                   <span 
                     className={`text-[12.5px] text-center w-full break-words line-clamp-2 px-1 leading-snug transition-colors ${
@@ -739,4 +632,4 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   );
 };
 
-export default FileExplorer;
+export default React.memo(FileExplorer);

@@ -84,24 +84,24 @@ function App() {
     setHistoryIndex,
   } = activePaneState;
 
-  const handleGoBack = async () => {
+  const handleGoBack = useCallback(async () => {
     if (!canGoBack) return;
     const nextIndex = historyIndex - 1;
     await navigateToPath(history[nextIndex], { recordHistory: false });
     setHistoryIndex(nextIndex);
-  };
+  }, [canGoBack, history, historyIndex, navigateToPath, setHistoryIndex]);
 
-  const handleGoForward = async () => {
+  const handleGoForward = useCallback(async () => {
     if (!canGoForward) return;
     const nextIndex = historyIndex + 1;
     await navigateToPath(history[nextIndex], { recordHistory: false });
     setHistoryIndex(nextIndex);
-  };
+  }, [canGoForward, history, historyIndex, navigateToPath, setHistoryIndex]);
 
-  const handleGoUp = async () => {
+  const handleGoUp = useCallback(async () => {
     if (!canGoUp) return;
     await navigateToPath(parentPath);
-  };
+  }, [canGoUp, navigateToPath, parentPath]);
 
   const refreshPane = useCallback(
     async (paneId: PaneId) => {
@@ -111,9 +111,9 @@ function App() {
     [leftPane, rightPane],
   );
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     await refreshPane(activePane);
-  };
+  }, [activePane, refreshPane]);
 
   useEffect(() => {
     setPaneUi((current) => ({
@@ -140,7 +140,7 @@ function App() {
     previewOpen: previewOpen && previewContentReady,
   });
 
-  const handleSelectionChange = (paneId: PaneId, item: FileItem | null) => {
+  const handleSelectionChange = useCallback((paneId: PaneId, item: FileItem | null) => {
     setPaneUi((current) =>
       current[paneId].selectedItem === item
         ? current
@@ -149,9 +149,9 @@ function App() {
             [paneId]: { ...current[paneId], selectedItem: item },
           },
     );
-  };
+  }, []);
 
-  const handleSelectedIndexChange = (paneId: PaneId, selectedIndex: number) => {
+  const handleSelectedIndexChange = useCallback((paneId: PaneId, selectedIndex: number) => {
     setPaneUi((current) =>
       current[paneId].selectedIndex === selectedIndex
         ? current
@@ -160,9 +160,9 @@ function App() {
             [paneId]: { ...current[paneId], selectedIndex },
           },
     );
-  };
+  }, []);
 
-  const handleViewModeChange = (paneId: PaneId, viewMode: ViewMode) => {
+  const handleViewModeChange = useCallback((paneId: PaneId, viewMode: ViewMode) => {
     setPaneUi((current) =>
       current[paneId].viewMode === viewMode
         ? current
@@ -171,9 +171,9 @@ function App() {
             [paneId]: { ...current[paneId], viewMode },
           },
     );
-  };
+  }, []);
 
-  const handleSortChange = (paneId: PaneId, sortBy: SortOption, sortOrder: SortOrder) => {
+  const handleSortChange = useCallback((paneId: PaneId, sortBy: SortOption, sortOrder: SortOrder) => {
     setPaneUi((current) =>
       current[paneId].sortBy === sortBy && current[paneId].sortOrder === sortOrder
         ? current
@@ -182,30 +182,31 @@ function App() {
             [paneId]: { ...current[paneId], sortBy, sortOrder },
           },
     );
-  };
+  }, []);
 
-  const handleDualModeToggle = () => {
-    const nextDualMode = !dualMode;
+  const handleDualModeToggle = useCallback(() => {
+    setDualMode((prev) => {
+      const nextDualMode = !prev;
 
-    if (!nextDualMode) {
-      setDualMode(false);
-      setActivePane("left");
-      setInternalClipboard(null);
-      setSearchActivePane((paneId) => (paneId === "right" ? null : paneId));
+      if (!nextDualMode) {
+        setActivePane("left");
+        setInternalClipboard(null);
+        setSearchActivePane((paneId) => (paneId === "right" ? null : paneId));
+        setPaneUi((current) => ({
+          ...current,
+          right: createDefaultPaneUiState(),
+        }));
+        return nextDualMode;
+      }
+
       setPaneUi((current) => ({
         ...current,
         right: createDefaultPaneUiState(),
       }));
-      return;
-    }
-
-    setPaneUi((current) => ({
-      ...current,
-      right: createDefaultPaneUiState(),
-    }));
-    void rightPane.resetToInitialPath();
-    setDualMode(true);
-  };
+      void rightPane.resetToInitialPath();
+      return nextDualMode;
+    });
+  }, [rightPane]);
 
   const performTransfer = useCallback(
     async (mode: TransferMode, sourcePaneId: PaneId, destinationPaneId: PaneId, item: FileItem) => {
