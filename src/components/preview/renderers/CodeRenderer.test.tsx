@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CodeRenderer from "./CodeRenderer";
 import { useTheme } from "../../theme-provider";
-import { Prism } from "react-syntax-highlighter";
-import { vscDarkPlus, prism } from "react-syntax-highlighter/dist/esm/styles/prism";
+import SyntaxHighlighter from "react-syntax-highlighter";
+import { github, atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 
 vi.mock("react-syntax-highlighter", () => ({
-  Prism: vi.fn(({ children, style }: { children: React.ReactNode; style?: object }) => (
+  default: vi.fn(({ children, style }: { children: React.ReactNode; style?: object }) => (
     <pre data-style={style ? "present" : "absent"}>{children}</pre>
   )),
 }));
@@ -32,7 +32,7 @@ Object.defineProperty(window, "matchMedia", {
 describe("CodeRenderer", () => {
   beforeEach(() => {
     vi.mocked(useTheme).mockReturnValue({ theme: "system", setTheme: vi.fn() });
-    vi.mocked(Prism).mockClear();
+    vi.mocked(SyntaxHighlighter).mockClear();
   });
 
   it("renders code content", () => {
@@ -80,7 +80,7 @@ describe("CodeRenderer", () => {
     expect(screen.getByText("Preview truncado")).toBeInTheDocument();
   });
 
-  it("uses vscDarkPlus style in dark mode", () => {
+  it("uses atomOneDark style in dark mode", () => {
     vi.mocked(useTheme).mockReturnValue({ theme: "dark", setTheme: vi.fn() });
 
     render(
@@ -94,12 +94,12 @@ describe("CodeRenderer", () => {
         }}
       />
     );
-    expect(vi.mocked(Prism)).toHaveBeenCalled();
-    const lastCall = vi.mocked(Prism).mock.calls[vi.mocked(Prism).mock.calls.length - 1];
-    expect(lastCall[0].style).toBe(vscDarkPlus);
+    expect(vi.mocked(SyntaxHighlighter)).toHaveBeenCalled();
+    const lastCall = vi.mocked(SyntaxHighlighter).mock.calls[vi.mocked(SyntaxHighlighter).mock.calls.length - 1];
+    expect(lastCall[0].style).toBe(atomOneDark);
   });
 
-  it("uses prism style in light mode", () => {
+  it("uses github style in light mode", () => {
     vi.mocked(useTheme).mockReturnValue({ theme: "light", setTheme: vi.fn() });
 
     render(
@@ -113,8 +113,8 @@ describe("CodeRenderer", () => {
         }}
       />
     );
-    expect(vi.mocked(Prism)).toHaveBeenCalled();
-    const lastCall = vi.mocked(Prism).mock.calls[vi.mocked(Prism).mock.calls.length - 1];
-    expect(lastCall[0].style).toBe(prism);
+    expect(vi.mocked(SyntaxHighlighter)).toHaveBeenCalled();
+    const lastCall = vi.mocked(SyntaxHighlighter).mock.calls[vi.mocked(SyntaxHighlighter).mock.calls.length - 1];
+    expect(lastCall[0].style).toBe(github);
   });
 });

@@ -1,5 +1,5 @@
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus, prism } from "react-syntax-highlighter/dist/esm/styles/prism";
+import SyntaxHighlighter from "react-syntax-highlighter";
+import { github, atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { useTheme } from "../../theme-provider";
 import type { PreviewPayload } from "../types";
 
@@ -32,7 +32,7 @@ export default function CodeRenderer({ payload }: { payload: CodePayload }) {
       <div className="flex-1 overflow-auto">
         <SyntaxHighlighter
           language={language}
-          style={isDark ? vscDarkPlus : prism}
+          style={isDark ? atomOneDark : github}
           customStyle={{
             margin: 0,
             padding: "1rem",
