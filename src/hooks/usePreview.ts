@@ -72,6 +72,30 @@ function normalizePreviewPayload(payload: unknown): PreviewPayload {
         sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
         reason: (value.reason as string | undefined) ?? undefined,
       };
+    case "code":
+      return {
+        type: "code",
+        content: String(value.content ?? ""),
+        language: String(value.language ?? ""),
+        truncated: Boolean(value.truncated),
+        sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
+      };
+    case "csv":
+      return {
+        type: "csv",
+        headers: Array.isArray(value.headers) ? (value.headers as string[]) : [],
+        rows: Array.isArray(value.rows) ? (value.rows as string[][]) : [],
+        truncated: Boolean(value.truncated),
+        sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
+      };
+    case "json":
+      return {
+        type: "json",
+        content: String(value.content ?? ""),
+        isArray: Boolean(value.isArray ?? value.is_array),
+        truncated: Boolean(value.truncated),
+        sizeBytes: Number(value.sizeBytes ?? value.size_bytes ?? 0),
+      };
     default:
       throw new Error("Preview con formato no soportado.");
   }
