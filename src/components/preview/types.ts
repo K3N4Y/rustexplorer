@@ -42,7 +42,7 @@ export type PreviewPayload =
       type: "directory";
       entryCount?: number;
     }
-  |     {
+  | {
       type: "binary";
       mimeType?: string;
       sizeBytes: number;
