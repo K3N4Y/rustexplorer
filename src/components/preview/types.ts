@@ -5,6 +5,7 @@ export type PreviewPayload =
       extension?: string;
       truncated: boolean;
       sizeBytes: number;
+      reason?: string;
     }
   | {
       type: "markdown";
@@ -41,9 +42,30 @@ export type PreviewPayload =
       type: "directory";
       entryCount?: number;
     }
-  | {
+  |     {
       type: "binary";
       mimeType?: string;
       sizeBytes: number;
       reason?: string;
+    }
+  | {
+      type: "code";
+      content: string;
+      language: string;
+      truncated: boolean;
+      sizeBytes: number;
+    }
+  | {
+      type: "csv";
+      headers: string[];
+      rows: string[][];
+      truncated: boolean;
+      sizeBytes: number;
+    }
+  | {
+      type: "json";
+      content: string;
+      isArray: boolean;
+      truncated: boolean;
+      sizeBytes: number;
     };
