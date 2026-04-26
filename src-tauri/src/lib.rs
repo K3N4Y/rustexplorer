@@ -385,22 +385,7 @@ fn is_markdown_extension(ext: &str) -> bool {
 }
 
 fn is_text_extension(ext: &str) -> bool {
-    matches!(
-        ext,
-        "txt"
-            | "rs"
-            | "ts"
-            | "tsx"
-            | "js"
-            | "jsx"
-            | "json"
-            | "css"
-            | "html"
-            | "toml"
-            | "yaml"
-            | "yml"
-            | "csv"
-    )
+    matches!(ext, "txt")
 }
 
 fn is_image_extension(ext: &str) -> bool {
@@ -680,7 +665,7 @@ fn should_search_entry(entry: &ignore::DirEntry) -> bool {
 }
 
 fn language_from_extension(ext: &str) -> &'static str {
-    match ext.to_lowercase().as_str() {
+    match ext {
         "rs" => "rust",
         "ts" | "tsx" => "typescript",
         "js" | "jsx" => "javascript",
@@ -732,8 +717,11 @@ fn parse_json_preview(content: &str) -> Result<(String, bool), String> {
     let value: serde_json::Value = serde_json::from_str(content)
         .map_err(|e| e.to_string())?;
     let is_array = value.is_array();
-    let pretty = serde_json::to_string_pretty(&value)
-        .map_err(|e| e.to_string())?;
+    let mut buf = Vec::new();
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"  ");
+    let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+    value.serialize(&mut ser).map_err(|e| e.to_string())?;
+    let pretty = String::from_utf8(buf).map_err(|e| e.to_string())?;
     Ok((pretty, is_array))
 }
 
@@ -1158,7 +1146,7 @@ mod tests {
     }
 
     #[test]
-    fn read_file_preview_marks_large_text_as_truncated() {
+    fn read_file_preview_marks_large_code_as_truncated() {
         let temp_dir = create_temp_dir("rustexplorer-text-limit");
         let file_path = temp_dir.join("long.rs");
         fs::write(&file_path, "a".repeat(2048)).unwrap();
@@ -1410,6 +1398,8 @@ mod tests {
             let json = r#"{"name":"Alice","age":30}"#;
             let (pretty, is_array) = parse_json_preview(json).unwrap();
             assert!(pretty.contains("\"name\""));
+            assert!(pretty.contains("\n  \"")); // 2-space indent
+            assert!(!pretty.contains("\n    \"")); // not 4-space indent
             assert!(!is_array);
         }
 
@@ -1473,7 +1463,9 @@ mod tests {
             write!(temp, "a,b\n\"unclosed").unwrap();
             let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
             match payload {
-                PreviewPayload::Text { .. } => {},
+                PreviewPayload::Text { reason, .. } => {
+                    assert_eq!(reason, Some("CSV malformed, showing as text".to_string()));
+                }
                 other => panic!("Expected Text fallback, got {:?}", other),
             }
         }
@@ -1485,7 +1477,9 @@ mod tests {
             write!(temp, "not json").unwrap();
             let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
             match payload {
-                PreviewPayload::Text { .. } => {},
+                PreviewPayload::Text { reason, .. } => {
+                    assert_eq!(reason, Some("Invalid JSON, showing as text".to_string()));
+                }
                 other => panic!("Expected Text fallback, got {:?}", other),
             }
         }
