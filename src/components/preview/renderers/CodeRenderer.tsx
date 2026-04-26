@@ -2,15 +2,9 @@ import SyntaxHighlighter from "react-syntax-highlighter";
 import { github, atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { useTheme } from "../../theme-provider";
 import type { PreviewPayload } from "../types";
+import { getIsDark } from "./getIsDark";
 
 type CodePayload = Extract<PreviewPayload, { type: "code" }>;
-
-function getIsDark(theme: string): boolean {
-  if (theme === "system") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  }
-  return theme === "dark";
-}
 
 export default function CodeRenderer({ payload }: { payload: CodePayload }) {
   const { content, language, truncated } = payload;
