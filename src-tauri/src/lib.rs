@@ -57,6 +57,7 @@ enum PreviewPayload {
         extension: Option<String>,
         truncated: bool,
         size_bytes: u64,
+        reason: Option<String>,
     },
     Markdown {
         content: String,
@@ -90,6 +91,24 @@ enum PreviewPayload {
         mime_type: Option<String>,
         size_bytes: u64,
         reason: Option<String>,
+    },
+    Code {
+        content: String,
+        language: String,
+        truncated: bool,
+        size_bytes: u64,
+    },
+    Csv {
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+        truncated: bool,
+        size_bytes: u64,
+    },
+    Json {
+        content: String,
+        is_array: bool,
+        truncated: bool,
+        size_bytes: u64,
     },
 }
 
@@ -505,6 +524,40 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
         });
     }
 
+    let ext = target.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let code_exts = ["rs", "ts", "tsx", "js", "jsx", "py", "go", "c", "h", "cpp", "cc", "cxx", "hpp", "java", "cs", "rb", "php", "swift", "kt", "scala", "sh", "bash", "ps1", "sql", "html", "htm", "css", "scss", "sass", "xml", "yaml", "yml", "toml", "dockerfile"];
+    if code_exts.contains(&ext.to_lowercase().as_str()) {
+        let (content, truncated) = read_text_preview(target, preview_limit)?;
+        return Ok(PreviewPayload::Code {
+            language: language_from_extension(ext).to_string(),
+            content,
+            truncated,
+            size_bytes: metadata.len(),
+        });
+    }
+    if ext.eq_ignore_ascii_case("csv") {
+        let (content, truncated) = read_text_preview(target, preview_limit)?;
+        match parse_csv_preview(&content, 1000) {
+            Ok((headers, rows, csv_truncated)) => {
+                return Ok(PreviewPayload::Csv { headers, rows, truncated: truncated || csv_truncated, size_bytes: metadata.len() });
+            }
+            Err(_) => {
+                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes: metadata.len(), reason: Some("CSV malformed, showing as text".to_string()) });
+            }
+        }
+    }
+    if ext.eq_ignore_ascii_case("json") {
+        let (content, truncated) = read_text_preview(target, preview_limit)?;
+        match parse_json_preview(&content) {
+            Ok((pretty, is_array)) => {
+                return Ok(PreviewPayload::Json { content: pretty, is_array, truncated, size_bytes: metadata.len() });
+            }
+            Err(_) => {
+                return Ok(PreviewPayload::Text { content, extension, truncated, size_bytes: metadata.len(), reason: Some("Invalid JSON, showing as text".to_string()) });
+            }
+        }
+    }
+
     if extension_ref.is_some_and(is_text_extension) {
         let (content, truncated) = read_text_preview(target, preview_limit)?;
 
@@ -513,6 +566,7 @@ fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPa
             extension,
             truncated,
             size_bytes,
+            reason: None,
         });
     }
 
@@ -623,6 +677,64 @@ fn should_search_entry(entry: &ignore::DirEntry) -> bool {
     !DEFAULT_EXCLUDED_SEARCH_DIRS
         .iter()
         .any(|excluded| name.eq_ignore_ascii_case(excluded))
+}
+
+fn language_from_extension(ext: &str) -> &'static str {
+    match ext.to_lowercase().as_str() {
+        "rs" => "rust",
+        "ts" | "tsx" => "typescript",
+        "js" | "jsx" => "javascript",
+        "py" => "python",
+        "go" => "go",
+        "c" | "h" => "c",
+        "cpp" | "cc" | "cxx" | "hpp" => "cpp",
+        "java" => "java",
+        "cs" => "csharp",
+        "rb" => "ruby",
+        "php" => "php",
+        "swift" => "swift",
+        "kt" => "kotlin",
+        "scala" => "scala",
+        "sh" | "bash" => "bash",
+        "ps1" => "powershell",
+        "sql" => "sql",
+        "html" | "htm" => "html",
+        "css" => "css",
+        "scss" | "sass" => "scss",
+        "xml" => "xml",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        "dockerfile" => "dockerfile",
+        _ => "plaintext",
+    }
+}
+
+fn parse_csv_preview(content: &str, max_rows: usize) -> Result<(Vec<String>, Vec<Vec<String>>, bool), csv::Error> {
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(content.as_bytes());
+    let headers = reader.headers()?
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let mut rows = Vec::new();
+    for result in reader.records() {
+        let record = result?;
+        rows.push(record.iter().map(|s| s.to_string()).collect());
+        if rows.len() >= max_rows {
+            return Ok((headers, rows, true));
+        }
+    }
+    Ok((headers, rows, false))
+}
+
+fn parse_json_preview(content: &str) -> Result<(String, bool), String> {
+    let value: serde_json::Value = serde_json::from_str(content)
+        .map_err(|e| e.to_string())?;
+    let is_array = value.is_array();
+    let pretty = serde_json::to_string_pretty(&value)
+        .map_err(|e| e.to_string())?;
+    Ok((pretty, is_array))
 }
 
 #[cfg(test)]
@@ -1054,13 +1166,13 @@ mod tests {
         let payload = read_file_preview(file_path.to_string_lossy().to_string(), Some(128)).unwrap();
 
         match payload {
-            PreviewPayload::Text {
+            PreviewPayload::Code {
                 truncated, content, ..
             } => {
                 assert!(truncated);
                 assert_eq!(content.len(), 128);
             }
-            other => panic!("expected text payload, got {:?}", other),
+            other => panic!("expected code payload, got {:?}", other),
         }
 
         fs::remove_file(&file_path).unwrap();
@@ -1248,5 +1360,134 @@ mod tests {
         fs::remove_dir(&src_dir).unwrap();
         fs::remove_dir(&node_modules_dir).unwrap();
         fs::remove_dir(&temp_dir).unwrap();
+    }
+
+    mod preview_tests {
+        use super::*;
+
+        #[test]
+        fn language_from_extension_maps_rs_to_rust() {
+            assert_eq!(language_from_extension("rs"), "rust");
+        }
+
+        #[test]
+        fn language_from_extension_maps_ts_to_typescript() {
+            assert_eq!(language_from_extension("ts"), "typescript");
+            assert_eq!(language_from_extension("tsx"), "typescript");
+        }
+
+        #[test]
+        fn language_from_extension_maps_unknown_to_plaintext() {
+            assert_eq!(language_from_extension("xyz"), "plaintext");
+        }
+
+        #[test]
+        fn parse_csv_preview_parses_headers_and_rows() {
+            let csv = "name,age\nAlice,30\nBob,25";
+            let (headers, rows, truncated) = parse_csv_preview(csv, 1000).unwrap();
+            assert_eq!(headers, vec!["name", "age"]);
+            assert_eq!(rows, vec![vec!["Alice", "30"], vec!["Bob", "25"]]);
+            assert!(!truncated);
+        }
+
+        #[test]
+        fn parse_csv_preview_limits_to_max_rows() {
+            let csv = "h1,h2\na,b\nc,d\ne,f";
+            let (headers, rows, truncated) = parse_csv_preview(csv, 2).unwrap();
+            assert_eq!(headers, vec!["h1", "h2"]);
+            assert_eq!(rows.len(), 2);
+            assert!(truncated);
+        }
+
+        #[test]
+        fn parse_csv_preview_returns_err_for_malformed_csv() {
+            let csv = "a,b\n\"unclosed";
+            assert!(parse_csv_preview(csv, 1000).is_err());
+        }
+
+        #[test]
+        fn parse_json_preview_pretty_prints_and_detects_object() {
+            let json = r#"{"name":"Alice","age":30}"#;
+            let (pretty, is_array) = parse_json_preview(json).unwrap();
+            assert!(pretty.contains("\"name\""));
+            assert!(!is_array);
+        }
+
+        #[test]
+        fn parse_json_preview_pretty_prints_and_detects_array() {
+            let json = r#"[1,2,3]"#;
+            let (pretty, is_array) = parse_json_preview(json).unwrap();
+            assert!(pretty.contains("1"));
+            assert!(is_array);
+        }
+
+        #[test]
+        fn parse_json_preview_returns_err_for_invalid_json() {
+            let json = "not json";
+            assert!(parse_json_preview(json).is_err());
+        }
+
+        #[test]
+        fn read_file_preview_returns_code_for_rust_extension() {
+            use std::io::Write;
+            let mut temp = tempfile::NamedTempFile::with_suffix(".rs").unwrap();
+            write!(temp, "fn main() {{}}").unwrap();
+            let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
+            match payload {
+                PreviewPayload::Code { language, .. } => assert_eq!(language, "rust"),
+                other => panic!("Expected Code payload, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn read_file_preview_returns_csv_for_csv_extension() {
+            use std::io::Write;
+            let mut temp = tempfile::NamedTempFile::with_suffix(".csv").unwrap();
+            write!(temp, "a,b\n1,2").unwrap();
+            let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
+            match payload {
+                PreviewPayload::Csv { headers, rows, .. } => {
+                    assert_eq!(headers, vec!["a", "b"]);
+                    assert_eq!(rows, vec![vec!["1", "2"]]);
+                }
+                other => panic!("Expected Csv payload, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn read_file_preview_returns_json_for_json_extension() {
+            use std::io::Write;
+            let mut temp = tempfile::NamedTempFile::with_suffix(".json").unwrap();
+            write!(temp, r#"{{"key": "value"}}"#).unwrap();
+            let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
+            match payload {
+                PreviewPayload::Json { is_array, .. } => assert!(!is_array),
+                other => panic!("Expected Json payload, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn read_file_preview_returns_csv_fallback_for_malformed_csv() {
+            use std::io::Write;
+            let mut temp = tempfile::NamedTempFile::with_suffix(".csv").unwrap();
+            write!(temp, "a,b\n\"unclosed").unwrap();
+            let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
+            match payload {
+                PreviewPayload::Text { .. } => {},
+                other => panic!("Expected Text fallback, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn read_file_preview_returns_json_fallback_for_invalid_json() {
+            use std::io::Write;
+            let mut temp = tempfile::NamedTempFile::with_suffix(".json").unwrap();
+            write!(temp, "not json").unwrap();
+            let payload = read_file_preview(temp.path().to_str().unwrap().to_string(), Some(128 * 1024)).unwrap();
+            match payload {
+                PreviewPayload::Text { .. } => {},
+                other => panic!("Expected Text fallback, got {:?}", other),
+            }
+        }
     }
 }
