@@ -1,7 +1,7 @@
 import { LoaderCircle, Search, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileItem } from "./file-types";
 import { useSettings } from "../lib/settings-provider";
 
@@ -45,14 +45,78 @@ export function InputGroupDemo({
   const [resultsCount, setResultsCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const { searchThreads } = useSettings();
-  const hadSearchRef = useRef(false);
+
+  // Refs para evitar re-crear listeners en cada búsqueda
   const activeRequestRef = useRef<string | null>(null);
-  const unlistenResultRef = useRef<UnlistenFn | null>(null);
-  const unlistenDoneRef = useRef<UnlistenFn | null>(null);
+  const streamedFilesRef = useRef<FileItem[]>([]);
   const flushTimerRef = useRef<number | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
+  const unlistenResultRef = useRef<UnlistenFn | null>(null);
+  const unlistenDoneRef = useRef<UnlistenFn | null>(null);
+  const onSearchResultsRef = useRef(onSearchResults);
+  const onSearchStateChangeRef = useRef(onSearchStateChange);
+  const onClearSearchRef = useRef(onClearSearch);
 
+  // Mantener refs actualizadas para callbacks
+  onSearchResultsRef.current = onSearchResults;
+  onSearchStateChangeRef.current = onSearchStateChange;
+  onClearSearchRef.current = onClearSearch;
+
+  // Suscribirse a eventos de Tauri UNA SOLA VEZ al montar
   useEffect(() => {
+    const setupListeners = async () => {
+      unlistenResultRef.current = await listen<SearchResultPayload>("search-results-chunk", (event) => {
+        const requestId = activeRequestRef.current;
+        if (!requestId || event.payload.request_id !== requestId) {
+          return;
+        }
+
+        const mappedChunk: FileItem[] = event.payload.items.map((item) => ({
+          name: item.name,
+          path: item.path,
+          size: item.size,
+          modified: item.modified,
+          isDirectory: item.is_dir,
+        }));
+
+        streamedFilesRef.current = streamedFilesRef.current.concat(mappedChunk);
+
+        if (flushTimerRef.current === null) {
+          flushTimerRef.current = window.setTimeout(() => {
+            flushTimerRef.current = null;
+
+            if (activeRequestRef.current !== requestId) {
+              return;
+            }
+
+            setResultsCount(streamedFilesRef.current.length);
+            onSearchResultsRef.current([...streamedFilesRef.current]);
+          }, 80);
+        }
+      });
+
+      unlistenDoneRef.current = await listen<SearchDonePayload>("search-done", (event) => {
+        const requestId = activeRequestRef.current;
+        if (!requestId || event.payload.request_id !== requestId) {
+          return;
+        }
+
+        if (flushTimerRef.current !== null) {
+          window.clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+
+        onSearchResultsRef.current([...streamedFilesRef.current]);
+        setResultsCount(event.payload.total);
+        setIsSearching(false);
+
+        activeRequestRef.current = null;
+        streamedFilesRef.current = [];
+      });
+    };
+
+    void setupListeners();
+
     return () => {
       if (debounceTimerRef.current !== null) {
         window.clearTimeout(debounceTimerRef.current);
@@ -65,93 +129,41 @@ export function InputGroupDemo({
     };
   }, []);
 
-  const clearFlushTimer = () => {
+  const resetSearchUi = useCallback(() => {
+    setIsSearching(false);
+    setResultsCount(0);
+    onSearchStateChangeRef.current(false);
+  }, []);
+
+  const performSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      activeRequestRef.current = null;
+      streamedFilesRef.current = [];
+      resetSearchUi();
+      await onClearSearchRef.current();
+      return;
+    }
+
+    // Cancelar búsqueda anterior
     if (flushTimerRef.current !== null) {
       window.clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
     }
-  };
 
-  const clearSearchListeners = () => {
-    unlistenResultRef.current?.();
-    unlistenDoneRef.current?.();
-    unlistenResultRef.current = null;
-    unlistenDoneRef.current = null;
-  };
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    activeRequestRef.current = requestId;
+    streamedFilesRef.current = [];
 
-  const teardownActiveSearch = () => {
-    clearFlushTimer();
-    clearSearchListeners();
-    activeRequestRef.current = null;
-  };
-
-  const resetSearchUi = () => {
-    setIsSearching(false);
+    setIsSearching(true);
     setResultsCount(0);
-    onSearchStateChange(false);
-  };
-
-  async function performSearch(searchQuery: string) {
-    if (!searchQuery.trim()) {
-      teardownActiveSearch();
-      resetSearchUi();
-      await onClearSearch();
-      return;
-    }
+    onSearchStateChangeRef.current(true);
+    onSearchResultsRef.current([]);
 
     try {
-      teardownActiveSearch();
-
-      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      activeRequestRef.current = requestId;
-
-      let streamedFiles: FileItem[] = [];
-      setIsSearching(true);
-      setResultsCount(0);
-      onSearchStateChange(true);
-      onSearchResults([]);
-
-      unlistenResultRef.current = await listen<SearchResultPayload>("search-results-chunk", (event) => {
-        if (event.payload.request_id !== requestId || activeRequestRef.current !== requestId) {
-          return;
-        }
-
-        const mappedChunk: FileItem[] = event.payload.items.map((item) => ({
-          name: item.name,
-          path: item.path,
-          size: item.size,
-          modified: item.modified,
-          isDirectory: item.is_dir,
-        }));
-
-        streamedFiles = streamedFiles.concat(mappedChunk);
-
-        if (flushTimerRef.current === null) {
-          flushTimerRef.current = window.setTimeout(() => {
-            flushTimerRef.current = null;
-
-            if (activeRequestRef.current !== requestId) {
-              return;
-            }
-
-            setResultsCount(streamedFiles.length);
-            onSearchResults([...streamedFiles]);
-          }, 80);
-        }
-      });
-
-      unlistenDoneRef.current = await listen<SearchDonePayload>("search-done", (event) => {
-        if (event.payload.request_id !== requestId || activeRequestRef.current !== requestId) {
-          return;
-        }
-
-        clearFlushTimer();
-        onSearchResults([...streamedFiles]);
-        setResultsCount(event.payload.total);
-        setIsSearching(false);
-        teardownActiveSearch();
-      });
-
       await invoke("search_with_ignore", {
         pattern: searchQuery,
         path: currentPath,
@@ -159,11 +171,15 @@ export function InputGroupDemo({
         requestId,
       });
     } catch (error) {
-      teardownActiveSearch();
+      activeRequestRef.current = null;
+      streamedFilesRef.current = [];
       resetSearchUi();
       console.error("Search failed:", error);
     }
-  }
+  }, [currentPath, resetSearchUi, searchThreads]);
+
+  const performSearchRef = useRef(performSearch);
+  performSearchRef.current = performSearch;
 
   useEffect(() => {
     if (debounceTimerRef.current !== null) {
@@ -171,18 +187,19 @@ export function InputGroupDemo({
     }
 
     if (!search.trim()) {
-      if (hadSearchRef.current) {
-        teardownActiveSearch();
-        hadSearchRef.current = false;
-        resetSearchUi();
-        void onClearSearch();
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
       }
+      activeRequestRef.current = null;
+      streamedFilesRef.current = [];
+      resetSearchUi();
+      void onClearSearchRef.current();
       return;
     }
 
-    hadSearchRef.current = true;
     debounceTimerRef.current = window.setTimeout(() => {
-      void performSearch(search);
+      void performSearchRef.current(search);
     }, 300);
 
     return () => {
@@ -191,7 +208,7 @@ export function InputGroupDemo({
         debounceTimerRef.current = null;
       }
     };
-  }, [search, currentPath, searchThreads]);
+  }, [search, currentPath, searchThreads, resetSearchUi]);
 
   useEffect(() => {
     if (debounceTimerRef.current !== null) {
@@ -199,10 +216,14 @@ export function InputGroupDemo({
       debounceTimerRef.current = null;
     }
     setSearch("");
-    hadSearchRef.current = false;
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    activeRequestRef.current = null;
+    streamedFilesRef.current = [];
     resetSearchUi();
-    teardownActiveSearch();
-  }, [currentPath, onSearchStateChange]);
+  }, [currentPath, resetSearchUi]);
 
   return (
     <InputGroup className="max-w-sm">

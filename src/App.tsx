@@ -1,5 +1,5 @@
 import { InputGroupDemo } from "./components/SearchBar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -239,6 +239,26 @@ function App() {
     setOperationError(null);
   }, []);
 
+  const keyboardStateRef = useRef({
+    paneUi,
+    activePane,
+    dualMode,
+    performTransfer,
+    handleClipboardAction,
+    internalClipboard,
+    setInternalClipboard,
+  });
+
+  keyboardStateRef.current = {
+    paneUi,
+    activePane,
+    dualMode,
+    performTransfer,
+    handleClipboardAction,
+    internalClipboard,
+    setInternalClipboard,
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
@@ -246,18 +266,19 @@ function App() {
         return;
       }
 
-      const selectedItem = paneUi[activePane].selectedItem;
-      const inactivePane = activePane === "left" ? "right" : "left";
+      const state = keyboardStateRef.current;
+      const selectedItem = state.paneUi[state.activePane].selectedItem;
+      const inactivePane = state.activePane === "left" ? "right" : "left";
 
-      if (event.key === "F5" && dualMode && selectedItem) {
+      if (event.key === "F5" && state.dualMode && selectedItem) {
         event.preventDefault();
-        void performTransfer("copy", activePane, inactivePane, selectedItem);
+        void state.performTransfer("copy", state.activePane, inactivePane, selectedItem);
         return;
       }
 
-      if (event.key === "F6" && dualMode && selectedItem) {
+      if (event.key === "F6" && state.dualMode && selectedItem) {
         event.preventDefault();
-        void performTransfer("move", activePane, inactivePane, selectedItem);
+        void state.performTransfer("move", state.activePane, inactivePane, selectedItem);
         return;
       }
 
@@ -267,17 +288,17 @@ function App() {
 
       const key = event.key.toLowerCase();
 
-      if ((key === "c" || key === "x") && dualMode && selectedItem) {
+      if ((key === "c" || key === "x") && state.dualMode && selectedItem) {
         event.preventDefault();
-        handleClipboardAction(activePane, key === "c" ? "copy" : "move", selectedItem);
+        state.handleClipboardAction(state.activePane, key === "c" ? "copy" : "move", selectedItem);
         return;
       }
 
-      if (key === "v" && dualMode && internalClipboard) {
+      if (key === "v" && state.dualMode && state.internalClipboard) {
         event.preventDefault();
-        void performTransfer(internalClipboard.mode, internalClipboard.sourcePane, activePane, internalClipboard.item).then((success) => {
-          if (success && internalClipboard.mode === "move") {
-            setInternalClipboard(null);
+        void state.performTransfer(state.internalClipboard.mode, state.internalClipboard.sourcePane, state.activePane, state.internalClipboard.item).then((success: boolean) => {
+          if (success && state.internalClipboard?.mode === "move") {
+            state.setInternalClipboard(null);
           }
         });
       }
@@ -285,7 +306,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activePane, dualMode, handleClipboardAction, internalClipboard, paneUi, performTransfer]);
+  }, []);
 
   const renderFilePane = (paneId: PaneId, paneLabel: string) => {
     const pane = paneId === "left" ? leftPane : rightPane;
