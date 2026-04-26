@@ -154,9 +154,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   );
   const isEmpty = !isLoading && !errorMessage && sortedFiles.length === 0;
 
+  const onSelectionChangeRef = React.useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+
   React.useEffect(() => {
-    onSelectionChange?.(visibleFiles[selectedIndex] ?? null);
-  }, [onSelectionChange, selectedIndex, visibleFiles]);
+    onSelectionChangeRef.current?.(visibleFiles[selectedIndex] ?? null);
+  }, [selectedIndex, visibleFiles]);
 
   const isFolder = (item: FileItem): boolean => item.isDirectory;
 
