@@ -1,14 +1,9 @@
-import SyntaxHighlighter from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { github } from "react-syntax-highlighter/dist/esm/styles/hljs";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus, prism } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useTheme } from "../../theme-provider";
+import type { PreviewPayload } from "../types";
 
-interface CodeRendererProps {
-  content: string;
-  language: string;
-  truncated: boolean;
-  sizeBytes: number;
-}
+type CodePayload = Extract<PreviewPayload, { type: "code" }>;
 
 function getIsDark(theme: string): boolean {
   if (theme === "system") {
@@ -17,11 +12,8 @@ function getIsDark(theme: string): boolean {
   return theme === "dark";
 }
 
-const CodeRenderer: React.FC<CodeRendererProps> = ({
-  content,
-  language,
-  truncated,
-}) => {
+export default function CodeRenderer({ payload }: { payload: CodePayload }) {
+  const { content, language, truncated } = payload;
   const { theme } = useTheme();
   const isDark = getIsDark(theme);
 
@@ -33,14 +25,14 @@ const CodeRenderer: React.FC<CodeRendererProps> = ({
         </span>
         {truncated && (
           <span className="text-[10px] text-yellow-600">
-            Truncated
+            Preview truncado
           </span>
         )}
       </div>
       <div className="flex-1 overflow-auto">
         <SyntaxHighlighter
           language={language}
-          style={isDark ? vscDarkPlus : github}
+          style={isDark ? vscDarkPlus : prism}
           customStyle={{
             margin: 0,
             padding: "1rem",
@@ -54,6 +46,4 @@ const CodeRenderer: React.FC<CodeRendererProps> = ({
       </div>
     </div>
   );
-};
-
-export default CodeRenderer;
+}
