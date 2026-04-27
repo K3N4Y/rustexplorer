@@ -757,7 +757,7 @@ fn parse_json_preview(content: &str) -> Result<(String, bool), String> {
 
 #[tauri::command]
 fn get_app_data(state: tauri::State<AppDataManager>) -> Result<AppData, String> {
-    Ok(state.get())
+    state.get()
 }
 
 #[tauri::command]
@@ -781,6 +781,7 @@ fn create_workspace(
             color,
             paths: vec![],
         });
+        Ok(())
     })
 }
 
@@ -796,6 +797,9 @@ fn rename_workspace(
     state.mutate(|data| {
         if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == id) {
             ws.name = name.trim().to_string();
+            Ok(())
+        } else {
+            Err("workspace not found".to_string())
         }
     })
 }
@@ -804,6 +808,7 @@ fn rename_workspace(
 fn delete_workspace(state: tauri::State<AppDataManager>, id: String) -> Result<AppData, String> {
     state.mutate(|data| {
         data.workspaces.retain(|w| w.id != id);
+        Ok(())
     })
 }
 
@@ -818,6 +823,9 @@ fn add_to_workspace(
             if !ws.paths.contains(&path) {
                 ws.paths.push(path);
             }
+            Ok(())
+        } else {
+            Err("workspace not found".to_string())
         }
     })
 }
@@ -831,6 +839,9 @@ fn remove_from_workspace(
     state.mutate(|data| {
         if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == workspace_id) {
             ws.paths.retain(|p| p != &path);
+            Ok(())
+        } else {
+            Err("workspace not found".to_string())
         }
     })
 }
@@ -853,6 +864,7 @@ fn create_tag(
             name: name.trim().to_string(),
             color,
         });
+        Ok(())
     })
 }
 
@@ -868,6 +880,9 @@ fn rename_tag(
     state.mutate(|data| {
         if let Some(tag) = data.tags.iter_mut().find(|t| t.id == id) {
             tag.name = name.trim().to_string();
+            Ok(())
+        } else {
+            Err("tag not found".to_string())
         }
     })
 }
@@ -884,6 +899,9 @@ fn change_tag_color(
     state.mutate(|data| {
         if let Some(tag) = data.tags.iter_mut().find(|t| t.id == id) {
             tag.color = color;
+            Ok(())
+        } else {
+            Err("tag not found".to_string())
         }
     })
 }
@@ -896,6 +914,7 @@ fn delete_tag(state: tauri::State<AppDataManager>, id: String) -> Result<AppData
             tags.retain(|t| t != &id);
         }
         data.path_tags.retain(|_, tags| !tags.is_empty());
+        Ok(())
     })
 }
 
@@ -910,6 +929,7 @@ fn add_tag_to_path(
         if !tags.contains(&tag_id) {
             tags.push(tag_id);
         }
+        Ok(())
     })
 }
 
@@ -926,6 +946,7 @@ fn remove_tag_from_path(
                 data.path_tags.remove(&path);
             }
         }
+        Ok(())
     })
 }
 

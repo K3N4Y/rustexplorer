@@ -63,16 +63,17 @@ impl AppDataManager {
         }
     }
 
-    pub fn get(&self) -> AppData {
-        self.data.lock().unwrap().clone()
+    pub fn get(&self) -> Result<AppData, String> {
+        let data = self.data.lock().map_err(|_| "lock poisoned".to_string())?;
+        Ok(data.clone())
     }
 
     pub fn mutate<F>(&self, mutation: F) -> Result<AppData, String>
     where
-        F: FnOnce(&mut AppData),
+        F: FnOnce(&mut AppData) -> Result<(), String>,
     {
         let mut data = self.data.lock().map_err(|_| "lock poisoned".to_string())?;
-        mutation(&mut data);
+        mutation(&mut data)?;
         let json = serde_json::to_string_pretty(&*data).map_err(|e| e.to_string())?;
         fs::write(&self.path, json).map_err(|e| e.to_string())?;
         Ok(data.clone())
@@ -102,7 +103,7 @@ mod tests {
         let path = temp_dir.path().join("app_data.json");
 
         let manager = AppDataManager::load(path.clone());
-        assert_eq!(manager.get().workspaces.len(), 0);
+        assert_eq!(manager.get().unwrap().workspaces.len(), 0);
 
         manager
             .mutate(|data| {
@@ -112,11 +113,12 @@ mod tests {
                     color: Some("#ff0000".to_string()),
                     paths: vec!["/test/path".to_string()],
                 });
+                Ok(())
             })
             .unwrap();
 
         let manager2 = AppDataManager::load(path);
-        let data = manager2.get();
+        let data = manager2.get().unwrap();
         assert_eq!(data.workspaces.len(), 1);
         assert_eq!(data.workspaces[0].name, "Test Workspace");
     }
@@ -135,6 +137,7 @@ mod tests {
                     color: None,
                     paths: vec![],
                 });
+                Ok(())
             })
             .unwrap();
 
@@ -143,10 +146,11 @@ mod tests {
                 if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == "ws-1") {
                     ws.name = "Renamed".to_string();
                 }
+                Ok(())
             })
             .unwrap();
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert_eq!(data.workspaces[0].name, "Renamed");
     }
 
@@ -164,6 +168,7 @@ mod tests {
                     color: None,
                     paths: vec![],
                 });
+                Ok(())
             })
             .unwrap();
 
@@ -175,6 +180,7 @@ mod tests {
                         ws.paths.push("/test/path".to_string());
                     }
                 }
+                Ok(())
             })
             .unwrap();
 
@@ -186,10 +192,11 @@ mod tests {
                         ws.paths.push("/test/path".to_string());
                     }
                 }
+                Ok(())
             })
             .unwrap();
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert_eq!(data.workspaces[0].paths.len(), 1);
 
         // Remove path
@@ -198,10 +205,11 @@ mod tests {
                 if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == "ws-1") {
                     ws.paths.retain(|p| p != "/test/path");
                 }
+                Ok(())
             })
             .unwrap();
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert!(data.workspaces[0].paths.is_empty());
     }
 
@@ -219,6 +227,7 @@ mod tests {
                     name: "Important".to_string(),
                     color: "#ff0000".to_string(),
                 });
+                Ok(())
             })
             .unwrap();
 
@@ -229,10 +238,11 @@ mod tests {
                     .entry("/test/file.txt".to_string())
                     .or_default()
                     .push("tag-1".to_string());
+                Ok(())
             })
             .unwrap();
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert_eq!(data.path_tags.get("/test/file.txt").unwrap().len(), 1);
 
         // Delete tag
@@ -243,10 +253,11 @@ mod tests {
                     tags.retain(|t| t != "tag-1");
                 }
                 data.path_tags.retain(|_, tags| !tags.is_empty());
+                Ok(())
             })
             .unwrap();
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert!(data.tags.is_empty());
         assert!(!data.path_tags.contains_key("/test/file.txt"));
     }
@@ -258,7 +269,7 @@ mod tests {
         fs::write(&path, "this is not valid json").unwrap();
 
         let manager = AppDataManager::load(path);
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert!(data.workspaces.is_empty());
         assert!(data.tags.is_empty());
         assert!(data.path_tags.is_empty());
@@ -282,6 +293,7 @@ mod tests {
                             color: None,
                             paths: vec![],
                         });
+                        Ok(())
                     })
                     .unwrap();
             });
@@ -292,7 +304,7 @@ mod tests {
             handle.join().unwrap();
         }
 
-        let data = manager.get();
+        let data = manager.get().unwrap();
         assert_eq!(data.workspaces.len(), 10);
     }
 
