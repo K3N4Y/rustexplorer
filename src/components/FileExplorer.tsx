@@ -282,6 +282,27 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
   };
 
+  const selectedIndexRef = React.useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
+
+  const visibleFilesRef = React.useRef(visibleFiles);
+  visibleFilesRef.current = visibleFiles;
+
+  const currentPathRef = React.useRef(currentPath);
+  currentPathRef.current = currentPath;
+
+  const setSelectedIndexRef = React.useRef(setSelectedIndex);
+  setSelectedIndexRef.current = setSelectedIndex;
+
+  const openItemRef = React.useRef(openItem);
+  openItemRef.current = openItem;
+
+  const navigateToPathRef = React.useRef(navigateToPath);
+  navigateToPathRef.current = navigateToPath;
+
+  const onTogglePreviewRef = React.useRef(onTogglePreview);
+  onTogglePreviewRef.current = onTogglePreview;
+
   React.useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!active) return;
@@ -293,41 +314,44 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         return;
       }
 
+      const currentVisibleFiles = visibleFilesRef.current;
+      const currentSelectedIndex = selectedIndexRef.current;
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (visibleFiles.length > 0) {
-          setSelectedIndex((prev) => Math.min(prev + 1, visibleFiles.length - 1));
+        if (currentVisibleFiles.length > 0) {
+          setSelectedIndexRef.current((prev) => Math.min(prev + 1, currentVisibleFiles.length - 1));
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (visibleFiles.length > 0) {
-          setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        if (currentVisibleFiles.length > 0) {
+          setSelectedIndexRef.current((prev) => Math.max(prev - 1, 0));
         }
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (visibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
-          const selectedItem = visibleFiles[selectedIndex];
+        if (currentVisibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
+          const selectedItem = currentVisibleFiles[currentSelectedIndex];
           if (selectedItem) {
-            await openItem(selectedItem);
+            await openItemRef.current(selectedItem);
           }
         }
       } else if (e.key === 'Backspace') {
         e.preventDefault();
-        const parentPath = getParentPath(currentPath);
-        if (parentPath !== '/' && parentPath !== currentPath) {
-          await navigateToPath(parentPath);
+        const parentPath = getParentPath(currentPathRef.current);
+        if (parentPath !== '/' && parentPath !== currentPathRef.current) {
+          await navigateToPathRef.current(parentPath);
         }
       } else if (e.key === ' ') {
-        if (visibleFiles.length > 0) {
+        if (currentVisibleFiles.length > 0) {
           e.preventDefault();
-          onTogglePreview?.();
+          onTogglePreviewRef.current?.();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active, selectedIndex, visibleFiles, currentPath]);
+  }, [active]);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return '-';
