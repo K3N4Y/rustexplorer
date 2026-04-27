@@ -1,6 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+mod app_data;
 mod models;
 
+use crate::app_data::{AppData, AppDataManager, generate_id, is_valid_hex};
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
@@ -12,7 +14,7 @@ use std::{
     sync::mpsc,
     thread,
 };
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Manager, Window};
 
 const EVENT_BATCH_SIZE: usize = 64;
 const DEFAULT_TEXT_PREVIEW_BYTES: usize = 128 * 1024;
@@ -122,6 +124,19 @@ enum PreviewPayload {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("failed to get app data dir");
+            if !app_data_dir.exists() {
+                fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+            }
+            let app_data_path = app_data_dir.join("app_data.json");
+            let manager = AppDataManager::load(app_data_path);
+            app.manage(manager);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             search_with_ignore,
             get_files,
@@ -129,7 +144,19 @@ pub fn run() {
             delete_file,
             copy_file,
             move_file,
-            read_file_preview
+            read_file_preview,
+            get_app_data,
+            create_workspace,
+            rename_workspace,
+            delete_workspace,
+            add_to_workspace,
+            remove_from_workspace,
+            create_tag,
+            rename_tag,
+            change_tag_color,
+            delete_tag,
+            add_tag_to_path,
+            remove_tag_from_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -726,6 +753,180 @@ fn parse_json_preview(content: &str) -> Result<(String, bool), String> {
     value.serialize(&mut ser).map_err(|e| e.to_string())?;
     let pretty = String::from_utf8(buf).map_err(|e| e.to_string())?;
     Ok((pretty, is_array))
+}
+
+#[tauri::command]
+fn get_app_data(state: tauri::State<AppDataManager>) -> Result<AppData, String> {
+    Ok(state.get())
+}
+
+#[tauri::command]
+fn create_workspace(
+    state: tauri::State<AppDataManager>,
+    name: String,
+    color: Option<String>,
+) -> Result<AppData, String> {
+    if name.trim().is_empty() {
+        return Err("workspace name cannot be empty".to_string());
+    }
+    if let Some(ref c) = color {
+        if !is_valid_hex(c) {
+            return Err("color must be a valid hex color (e.g., #ff0000)".to_string());
+        }
+    }
+    state.mutate(|data| {
+        data.workspaces.push(crate::app_data::Workspace {
+            id: generate_id(),
+            name: name.trim().to_string(),
+            color,
+            paths: vec![],
+        });
+    })
+}
+
+#[tauri::command]
+fn rename_workspace(
+    state: tauri::State<AppDataManager>,
+    id: String,
+    name: String,
+) -> Result<AppData, String> {
+    if name.trim().is_empty() {
+        return Err("workspace name cannot be empty".to_string());
+    }
+    state.mutate(|data| {
+        if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == id) {
+            ws.name = name.trim().to_string();
+        }
+    })
+}
+
+#[tauri::command]
+fn delete_workspace(state: tauri::State<AppDataManager>, id: String) -> Result<AppData, String> {
+    state.mutate(|data| {
+        data.workspaces.retain(|w| w.id != id);
+    })
+}
+
+#[tauri::command]
+fn add_to_workspace(
+    state: tauri::State<AppDataManager>,
+    workspace_id: String,
+    path: String,
+) -> Result<AppData, String> {
+    state.mutate(|data| {
+        if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == workspace_id) {
+            if !ws.paths.contains(&path) {
+                ws.paths.push(path);
+            }
+        }
+    })
+}
+
+#[tauri::command]
+fn remove_from_workspace(
+    state: tauri::State<AppDataManager>,
+    workspace_id: String,
+    path: String,
+) -> Result<AppData, String> {
+    state.mutate(|data| {
+        if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == workspace_id) {
+            ws.paths.retain(|p| p != &path);
+        }
+    })
+}
+
+#[tauri::command]
+fn create_tag(
+    state: tauri::State<AppDataManager>,
+    name: String,
+    color: String,
+) -> Result<AppData, String> {
+    if name.trim().is_empty() {
+        return Err("tag name cannot be empty".to_string());
+    }
+    if !is_valid_hex(&color) {
+        return Err("color must be a valid hex color (e.g., #ff0000)".to_string());
+    }
+    state.mutate(|data| {
+        data.tags.push(crate::app_data::Tag {
+            id: generate_id(),
+            name: name.trim().to_string(),
+            color,
+        });
+    })
+}
+
+#[tauri::command]
+fn rename_tag(
+    state: tauri::State<AppDataManager>,
+    id: String,
+    name: String,
+) -> Result<AppData, String> {
+    if name.trim().is_empty() {
+        return Err("tag name cannot be empty".to_string());
+    }
+    state.mutate(|data| {
+        if let Some(tag) = data.tags.iter_mut().find(|t| t.id == id) {
+            tag.name = name.trim().to_string();
+        }
+    })
+}
+
+#[tauri::command]
+fn change_tag_color(
+    state: tauri::State<AppDataManager>,
+    id: String,
+    color: String,
+) -> Result<AppData, String> {
+    if !is_valid_hex(&color) {
+        return Err("color must be a valid hex color (e.g., #ff0000)".to_string());
+    }
+    state.mutate(|data| {
+        if let Some(tag) = data.tags.iter_mut().find(|t| t.id == id) {
+            tag.color = color;
+        }
+    })
+}
+
+#[tauri::command]
+fn delete_tag(state: tauri::State<AppDataManager>, id: String) -> Result<AppData, String> {
+    state.mutate(|data| {
+        data.tags.retain(|t| t.id != id);
+        for tags in data.path_tags.values_mut() {
+            tags.retain(|t| t != &id);
+        }
+        data.path_tags.retain(|_, tags| !tags.is_empty());
+    })
+}
+
+#[tauri::command]
+fn add_tag_to_path(
+    state: tauri::State<AppDataManager>,
+    tag_id: String,
+    path: String,
+) -> Result<AppData, String> {
+    state.mutate(|data| {
+        let tags = data.path_tags.entry(path).or_default();
+        if !tags.contains(&tag_id) {
+            tags.push(tag_id);
+        }
+    })
+}
+
+#[tauri::command]
+fn remove_tag_from_path(
+    state: tauri::State<AppDataManager>,
+    tag_id: String,
+    path: String,
+) -> Result<AppData, String> {
+    state.mutate(|data| {
+        if let Some(tags) = data.path_tags.get_mut(&path) {
+            tags.retain(|t| t != &tag_id);
+            if tags.is_empty() {
+                data.path_tags.remove(&path);
+            }
+        }
+    })
 }
 
 #[cfg(test)]
