@@ -114,9 +114,8 @@ export function CommandPaletteDialog() {
           await result;
         }
       } catch (err) {
-        toast.error("Command failed", {
-          description: err instanceof Error ? err.message : "Unknown error",
-        });
+        toast.error("Command failed");
+        console.error("Command palette action failed:", err);
       }
     },
     []

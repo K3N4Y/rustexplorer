@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { FileText, ExternalLink } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -71,7 +72,8 @@ export default function PdfRenderer({ payload }: Props) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setRenderError(err instanceof Error ? err.message : 'Failed to load PDF');
+        console.error('PDF load failed:', err);
+        setRenderError('Failed to load PDF preview');
         setLoading(false);
       });
 
@@ -146,8 +148,9 @@ export default function PdfRenderer({ payload }: Props) {
   const openExternally = () => {
     const openablePath = payload.path.replace(/\\/g, '/');
 
-    void openPath(openablePath).catch((e) => {
-      console.error('Failed to open PDF externally:', e);
+    void openPath(openablePath).catch((error) => {
+      console.error('Failed to open PDF externally:', error);
+      toast.error('Failed to open PDF externally');
     });
   };
 

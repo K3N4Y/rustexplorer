@@ -1,4 +1,5 @@
 import { LoaderCircle, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -171,10 +172,11 @@ export function InputGroupDemo({
         requestId,
       });
     } catch (error) {
+      console.error("Search failed:", error);
       activeRequestRef.current = null;
       streamedFilesRef.current = [];
       resetSearchUi();
-      console.error("Search failed:", error);
+      toast.error("Search failed");
     }
   }, [currentPath, resetSearchUi, searchThreads]);
 

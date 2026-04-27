@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { openPath } from '@tauri-apps/plugin-opener';
 import {
   AlertCircle,
@@ -169,7 +170,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       const nextFiles = await onLoadFolder(path);
       onPathChange?.(path, nextFiles);
     } catch (error) {
-      console.error('Error loading folder:', error);
+      console.error('Failed to load folder:', error);
+      toast.error('Failed to load folder');
     }
   }, [onLoadFolder, onPathChange]);
 
@@ -182,7 +184,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     try {
       await openPath(toOpenablePath(item.path));
     } catch (error) {
-      console.error('Error opening file:', error);
+      console.error('Failed to open file:', error);
+      toast.error('Failed to open file');
     }
   }, [navigateToPath]);
 
@@ -267,7 +270,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       setRenameDialogOpen(false);
       setFileToRename(null);
     } catch (error) {
-      console.error('Error renaming item:', error);
+      console.error('Failed to rename item:', error);
+      toast.error('Failed to rename item');
     }
   };
 
@@ -279,7 +283,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       setDeleteDialogOpen(false);
       setFileToDelete(null);
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error('Failed to delete item:', error);
+      toast.error('Failed to delete item');
     }
   };
 

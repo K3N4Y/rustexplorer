@@ -10,6 +10,7 @@ import {
   Navigation,
   PanelTopOpen,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { SidebarContent, SidebarHeader } from './ui/sidebar';
 import type { FileItem } from './file-types';
 import { getAncestorPaths, getPathLabel, normalizePath } from '../lib/path-utils';
@@ -101,7 +102,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
           [normalized]: onlyDirectories,
         }));
       } catch (error) {
-        console.error('Error loading tree node:', error);
+        console.error('Failed to load directory tree:', error);
+        toast.error('Failed to load directory tree');
       } finally {
         setLoadingPaths((prev) => {
           const next = new Set(prev);

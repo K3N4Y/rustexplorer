@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 
 export interface Workspace {
   id: string;
@@ -48,7 +49,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const data = await invoke<AppData>("get_app_data");
       setAppData(data);
     } catch (e) {
-      console.error("Failed to load app data:", e);
+      console.error("Failed to load workspace data:", e);
+      toast.error("Failed to load workspace data");
     }
   };
 
@@ -62,7 +64,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setAppData(data);
       return data;
     } catch (e) {
-      console.error(`Command ${command} failed:`, e);
+      console.error(`Failed to execute ${command}:`, e);
+      toast.error(`Failed to execute ${command}`);
     }
   };
 
