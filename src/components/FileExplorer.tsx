@@ -46,6 +46,8 @@ interface FileExplorerProps {
   onActivatePane?: (paneId: PaneId) => void;
   onCopyToInactivePane?: (item: FileItem) => void;
   onMoveToInactivePane?: (item: FileItem) => void;
+  onCreateWorkspace?: () => void;
+  onCreateTag?: () => void;
 }
 
 type PaneId = 'left' | 'right';

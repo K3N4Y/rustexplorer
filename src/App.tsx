@@ -13,7 +13,7 @@ import "./App.css";
 import FilePane from "./components/FilePane";
 import FileTreeSidebar from "./components/FileTreeSidebar";
 import type { FileItem } from "./components/file-types";
-import type { PaneId, PaneUiState, ViewMode, SortOption, SortOrder } from "./components/FilePane";
+import type { PaneId, PaneUiState, ViewMode, SortOption, SortOrder, ViewLocation } from "./components/FilePane";
 import { useFileNavigation } from "./hooks/use-file-navigation";
 import { getPathLabel } from "./lib/path-utils";
 import { Button } from "./components/ui/button";
@@ -30,7 +30,10 @@ import { CommandPaletteProvider } from "@/components/command-palette/CommandPale
 import { CommandPaletteDialog } from "@/components/command-palette/CommandPaletteDialog";
 import { Toaster } from "@/components/ui/sonner";
 import { useCommandEffect } from "@/hooks/useCommandEffect";
+import { useCommandRegistry } from "@/hooks/useCommandRegistry";
+import { useWorkspaces } from "@/hooks/use-workspaces";
 import { WorkspaceProvider } from "@/lib/workspace-provider";
+import { TagManagerDialog } from "@/components/tag-manager-dialog";
 
 type TransferMode = "copy" | "move";
 
@@ -61,6 +64,9 @@ function AppContent() {
   });
   const [internalClipboard, setInternalClipboard] = useState<InternalClipboard>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
+  const [leftViewLocation, setLeftViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
+  const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const leftPane = useFileNavigation(rootPath);
   const rightPane = useFileNavigation(rootPath);
   const activePaneState = activePane === "left" ? leftPane : rightPane;
@@ -78,6 +84,12 @@ function AppContent() {
     setFiles,
     setHistoryIndex,
   } = activePaneState;
+
+  const { workspaces, tags, addToWorkspace } = useWorkspaces();
+  const { register, unregister } = useCommandRegistry();
+  const addToWorkspaceRef = useRef(addToWorkspace);
+  addToWorkspaceRef.current = addToWorkspace;
+  const selectedItem = paneUi[activePane].selectedItem;
 
   const handleGoBack = useCallback(async () => {
     if (!canGoBack) return;
@@ -133,6 +145,85 @@ function AppContent() {
       };
     });
   }, [rightPane.currentPath]);
+
+  useEffect(() => {
+    const commandsToCleanup: string[] = [];
+
+    workspaces.forEach((workspace) => {
+      const id = `workspace-open-${workspace.id}`;
+      register({
+        id,
+        label: `Workspace: Open ${workspace.name}`,
+        description: `Open workspace ${workspace.name}`,
+        icon: "Briefcase",
+        keywords: ["workspace", workspace.name.toLowerCase(), "open"],
+        category: "Workspaces",
+        action: () => {
+          if (activePane === "left") {
+            setLeftViewLocation({ type: "workspace", workspaceId: workspace.id });
+          } else {
+            setRightViewLocation({ type: "workspace", workspaceId: workspace.id });
+          }
+        },
+      });
+      commandsToCleanup.push(id);
+    });
+
+    tags.forEach((tag) => {
+      const id = `tag-filter-${tag.id}`;
+      register({
+        id,
+        label: `Tag: Filter #${tag.name}`,
+        description: `Filter by tag ${tag.name}`,
+        icon: "Tag",
+        keywords: ["tag", tag.name.toLowerCase(), "filter"],
+        category: "Tags",
+        action: () => {
+          if (activePane === "left") {
+            setLeftViewLocation({ type: "tag", tagId: tag.id });
+          } else {
+            setRightViewLocation({ type: "tag", tagId: tag.id });
+          }
+        },
+      });
+      commandsToCleanup.push(id);
+    });
+
+    const tagManagerId = "tags-manage";
+    register({
+      id: tagManagerId,
+      label: "Tags: Manage",
+      description: "Open the tag manager dialog",
+      icon: "Tags",
+      keywords: ["tags", "manage", "edit", "organize"],
+      category: "Tags",
+      action: () => setTagManagerOpen(true),
+    });
+    commandsToCleanup.push(tagManagerId);
+
+    if (selectedItem) {
+      workspaces.forEach((workspace) => {
+        const id = `workspace-add-selection-${workspace.id}`;
+        register({
+          id,
+          label: `Add selection to workspace: ${workspace.name}`,
+          description: `Add ${selectedItem.name} to workspace ${workspace.name}`,
+          icon: "Plus",
+          keywords: ["workspace", workspace.name.toLowerCase(), "add", "selection"],
+          category: "Workspaces",
+          action: () => {
+            void addToWorkspaceRef.current(workspace.id, selectedItem.path);
+          },
+        });
+        commandsToCleanup.push(id);
+      });
+    }
+
+    return () => {
+      commandsToCleanup.forEach((id) => unregister(id));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces, tags, activePane, selectedItem, register, unregister]);
 
   const selectedPreviewItem = paneUi[activePane].selectedItem;
 
@@ -503,6 +594,9 @@ function AppContent() {
                 activePane={activePane}
                 searchActivePane={searchActivePane}
                 dualMode={dualMode}
+                homeDir={rootPath}
+                viewLocation={leftViewLocation}
+                onViewLocationChange={setLeftViewLocation}
                 onSelectionChange={handleSelectionChange}
                 onSelectedIndexChange={handleSelectedIndexChange}
                 onViewModeChange={handleViewModeChange}
@@ -520,6 +614,9 @@ function AppContent() {
                   activePane={activePane}
                   searchActivePane={searchActivePane}
                   dualMode={dualMode}
+                  homeDir={rootPath}
+                  viewLocation={rightViewLocation}
+                  onViewLocationChange={setRightViewLocation}
                   onSelectionChange={handleSelectionChange}
                   onSelectedIndexChange={handleSelectedIndexChange}
                   onViewModeChange={handleViewModeChange}
@@ -554,6 +651,7 @@ function AppContent() {
       </SidebarInset>
 
       <CommandPaletteDialog />
+      <TagManagerDialog open={tagManagerOpen} onOpenChange={setTagManagerOpen} />
       <Toaster />
     </SidebarProvider>
   );
