@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SetStateAction } from "react";
 import type { FileItem } from "../components/file-types";
 import { getParentPath } from "../lib/path-utils";
+import { useCommandEffect } from "./useCommandEffect";
 
 type FileRecord = {
   name: string;
@@ -161,13 +162,30 @@ export function useFilePaneNavigation(initialPath: string) {
   }, [navigateToPath, initialPath]);
 
   const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
+  const canGoUp = parentPath !== currentPath;
   const history = navigationHistory.entries;
   const historyIndex = navigationHistory.index;
+
+  useCommandEffect({
+    id: "nav-go-to-parent",
+    label: "Go to Parent Directory",
+    description: "Navigate up one level",
+    icon: "ArrowUp",
+    keywords: ["up", "parent", "back", "directory"],
+    category: "Navigation",
+    shortcut: "Alt+Up",
+    action: () => {
+      if (canGoUp && parentPath) {
+        navigateToPath(parentPath);
+      }
+    },
+    isEnabled: () => canGoUp,
+  });
 
   return {
     canGoBack: historyIndex > 0,
     canGoForward: historyIndex < history.length - 1,
-    canGoUp: parentPath !== currentPath,
+    canGoUp,
     currentPath,
     copyItemToDirectory,
     deleteItem,

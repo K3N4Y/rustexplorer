@@ -8,6 +8,7 @@ import {
   FolderOpen,
   RefreshCcw,
 } from "lucide-react";
+import { toast } from "sonner";
 import "./App.css";
 import FilePane from "./components/FilePane";
 import FileTreeSidebar from "./components/FileTreeSidebar";
@@ -25,6 +26,10 @@ import {
 import { SettingsDialog } from "./components/settings-dialog";
 import PreviewPanel from "./components/preview/PreviewPanel";
 import { usePreview } from "./hooks/usePreview";
+import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider";
+import { CommandPaletteDialog } from "@/components/command-palette/CommandPaletteDialog";
+import { Toaster } from "@/components/ui/sonner";
+import { useCommandEffect } from "@/hooks/useCommandEffect";
 
 type TransferMode = "copy" | "move";
 
@@ -42,7 +47,7 @@ const createDefaultPaneUiState = (): PaneUiState => ({
   sortOrder: "asc",
 });
 
-function App() {
+function AppContent() {
   const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
   const [searchActivePane, setSearchActivePane] = useState<PaneId | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -297,7 +302,76 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useCommandEffect({
+    id: "nav-toggle-preview",
+    label: "Toggle Preview Pane",
+    description: "Show or hide the file preview",
+    icon: "PanelRight",
+    keywords: ["preview", "pane", "toggle", "show"],
+    category: "Navigation",
+    shortcut: "Space",
+    action: () => setPreviewOpen((prev) => !prev),
+  });
 
+  useCommandEffect({
+    id: "nav-toggle-view-mode",
+    label: "Toggle View Mode",
+    description: "Switch between list and grid view",
+    icon: "LayoutGrid",
+    keywords: ["view", "mode", "list", "grid", "layout"],
+    category: "Navigation",
+    action: () => setPaneUi((prev) => ({
+      ...prev,
+      left: { ...prev.left, viewMode: prev.left.viewMode === "list" ? "grid" : "list" },
+      right: { ...prev.right, viewMode: prev.right.viewMode === "list" ? "grid" : "list" },
+    })),
+  });
+
+  useCommandEffect({
+    id: "pane-toggle-dual",
+    label: "Toggle Dual Pane Mode",
+    description: "Enable or disable dual pane view",
+    icon: "Columns",
+    keywords: ["dual", "pane", "split", "two"],
+    category: "Dual Pane",
+    action: handleDualModeToggle,
+  });
+
+  useCommandEffect({
+    id: "search-global",
+    label: "Global Search",
+    description: "Search across all files",
+    icon: "Search",
+    keywords: ["search", "find", "global", "files"],
+    category: "Search",
+    action: () => {
+      toast.info("Global search", { description: "Not yet implemented" });
+    },
+  });
+
+  useCommandEffect({
+    id: "git-init",
+    label: "Initialize Git Repository",
+    description: "Initialize a new git repo in the current directory",
+    icon: "GitBranch",
+    keywords: ["git", "init", "repository", "version control"],
+    category: "Git",
+    action: () => {
+      toast.info("Git init", { description: "Not yet implemented" });
+    },
+  });
+
+  useCommandEffect({
+    id: "settings-open",
+    label: "Open Settings",
+    description: "Open application settings",
+    icon: "Settings",
+    keywords: ["settings", "preferences", "config", "options"],
+    category: "Settings",
+    action: () => {
+      toast.info("Settings", { description: "Not yet implemented" });
+    },
+  });
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -467,7 +541,18 @@ function App() {
           </div>
         </main>
       </SidebarInset>
+
+      <CommandPaletteDialog />
+      <Toaster />
     </SidebarProvider>
+  );
+}
+
+function App() {
+  return (
+    <CommandPaletteProvider>
+      <AppContent />
+    </CommandPaletteProvider>
   );
 }
 
