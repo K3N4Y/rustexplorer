@@ -11,14 +11,33 @@ import {
 } from "@/components/ui/command";
 import { useCommandPaletteContext } from "./CommandPaletteProvider";
 import type { Command as CommandType } from "@/types/command";
-import * as LucideIcons from "lucide-react";
+import {
+  ArrowUp,
+  Columns,
+  Command as CommandIcon,
+  GitBranch,
+  LayoutGrid,
+  PanelRight,
+  Search,
+  Settings,
+} from "lucide-react";
 import { toast } from "sonner";
 
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  ArrowUp,
+  Columns,
+  Command: CommandIcon,
+  GitBranch,
+  LayoutGrid,
+  PanelRight,
+  Search,
+  Settings,
+};
+
 function getIcon(iconName: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Icon = (LucideIcons as any)[iconName];
+  const Icon = ICON_MAP[iconName];
   if (!Icon) {
-    return LucideIcons.Command;
+    return CommandIcon;
   }
   return Icon;
 }
