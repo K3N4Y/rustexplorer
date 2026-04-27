@@ -89,6 +89,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   onActivatePane,
   onCopyToInactivePane,
   onMoveToInactivePane,
+  onCreateWorkspace,
+  onCreateTag,
 }) => {
   const currentPath = initialPath;
   const files = initialFiles;
@@ -512,6 +514,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onSelect={handleSelect}
                   onCopyToInactivePane={onCopyToInactivePane}
                   onMoveToInactivePane={onMoveToInactivePane}
+                  onCreateWorkspace={onCreateWorkspace}
+                  onCreateTag={onCreateTag}
                   className={`group/file-row grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border items-center cursor-pointer transition-colors duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-l-2 border-l-accent bg-muted text-foreground hover:bg-muted'
@@ -566,6 +570,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   onSelect={handleSelect}
                   onCopyToInactivePane={onCopyToInactivePane}
                   onMoveToInactivePane={onMoveToInactivePane}
+                  onCreateWorkspace={onCreateWorkspace}
+                  onCreateTag={onCreateTag}
                   className={`group/file-tile flex flex-col items-center justify-center rounded-xl border p-4 cursor-pointer transition-[background-color,border-color] duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-t-2 border-t-accent bg-muted border-foreground hover:bg-muted hover:border-foreground'

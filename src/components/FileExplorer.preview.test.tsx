@@ -1,26 +1,33 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import FileExplorer from "./FileExplorer";
+import { WorkspaceProvider } from "@/lib/workspace-provider";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue({ workspaces: [], tags: [], path_tags: {} }),
+}));
 
 describe("FileExplorer preview toggle", () => {
   it("calls preview toggle when Space is pressed and a file is selected", () => {
     const onTogglePreview = vi.fn();
 
     render(
-      <FileExplorer
-        initialFiles={[
-          {
-            name: "notes.txt",
-            path: "C:/notes.txt",
-            size: 10,
-            modified: null,
-            isDirectory: false,
-          },
-        ]}
-        onLoadFolder={vi.fn().mockResolvedValue([])}
-        onTogglePreview={onTogglePreview}
-        onSelectionChange={vi.fn()}
-      />
+      <WorkspaceProvider>
+        <FileExplorer
+          initialFiles={[
+            {
+              name: "notes.txt",
+              path: "C:/notes.txt",
+              size: 10,
+              modified: null,
+              isDirectory: false,
+            },
+          ]}
+          onLoadFolder={vi.fn().mockResolvedValue([])}
+          onTogglePreview={onTogglePreview}
+          onSelectionChange={vi.fn()}
+        />
+      </WorkspaceProvider>
     );
 
     fireEvent.keyDown(window, { key: " " });
@@ -48,12 +55,14 @@ describe("FileExplorer preview toggle", () => {
     ];
 
     render(
-      <FileExplorer
-        initialFiles={files}
-        onLoadFolder={vi.fn().mockResolvedValue([])}
-        onTogglePreview={vi.fn()}
-        onSelectionChange={onSelectionChange}
-      />
+      <WorkspaceProvider>
+        <FileExplorer
+          initialFiles={files}
+          onLoadFolder={vi.fn().mockResolvedValue([])}
+          onTogglePreview={vi.fn()}
+          onSelectionChange={onSelectionChange}
+        />
+      </WorkspaceProvider>
     );
 
     await waitFor(() => {

@@ -34,6 +34,7 @@ import { useCommandRegistry } from "@/hooks/useCommandRegistry";
 import { useWorkspaces } from "@/hooks/use-workspaces";
 import { WorkspaceProvider } from "@/lib/workspace-provider";
 import { TagManagerDialog } from "@/components/tag-manager-dialog";
+import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
 
 type TransferMode = "copy" | "move";
 
@@ -67,6 +68,7 @@ function AppContent() {
   const [leftViewLocation, setLeftViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
   const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const leftPane = useFileNavigation(rootPath);
   const rightPane = useFileNavigation(rootPath);
   const activePaneState = activePane === "left" ? leftPane : rightPane;
@@ -121,6 +123,14 @@ function AppContent() {
   const handleRefresh = useCallback(async () => {
     await refreshPane(activePane);
   }, [activePane, refreshPane]);
+
+  const handleOpenWorkspace = useCallback((workspaceId: string) => {
+    if (activePane === "left") {
+      setLeftViewLocation({ type: "workspace", workspaceId });
+    } else {
+      setRightViewLocation({ type: "workspace", workspaceId });
+    }
+  }, [activePane]);
 
   useEffect(() => {
     setPaneUi((current) => {
@@ -483,6 +493,8 @@ function AppContent() {
           currentPath={currentPath}
           onLoadFolder={loadFolder}
           onNavigate={navigateToPath}
+          onOpenWorkspace={handleOpenWorkspace}
+          onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
         />
       </Sidebar>
 
@@ -604,6 +616,8 @@ function AppContent() {
                 setPreviewOpen={setPreviewOpen}
                 setActivePane={setActivePane}
                 performTransfer={performTransfer}
+                onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
+                onCreateTag={() => setTagManagerOpen(true)}
               />
               {dualMode ? (
                 <FilePane
@@ -624,6 +638,8 @@ function AppContent() {
                   setPreviewOpen={setPreviewOpen}
                   setActivePane={setActivePane}
                   performTransfer={performTransfer}
+                onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
+                onCreateTag={() => setTagManagerOpen(true)}
                 />
               ) : null}
               {operationError ? (
@@ -652,6 +668,7 @@ function AppContent() {
 
       <CommandPaletteDialog />
       <TagManagerDialog open={tagManagerOpen} onOpenChange={setTagManagerOpen} />
+      <CreateWorkspaceDialog open={createWorkspaceOpen} onOpenChange={setCreateWorkspaceOpen} />
       <Toaster />
     </SidebarProvider>
   );

@@ -13,12 +13,15 @@ import {
 import { SidebarContent, SidebarHeader } from './ui/sidebar';
 import type { FileItem } from './file-types';
 import { getAncestorPaths, getPathLabel, normalizePath } from '../lib/path-utils';
+import { WorkspaceSidebarSection } from './workspace-sidebar-section';
 
 interface FileTreeSidebarProps {
   rootPath: string;
   currentPath: string;
   onNavigate: (path: string) => Promise<unknown>;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
+  onOpenWorkspace?: (workspaceId: string) => void;
+  onCreateWorkspace?: () => void;
 }
 
 function getNodeName(path: string): string {
@@ -58,6 +61,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   currentPath,
   onNavigate,
   onLoadFolder,
+  onOpenWorkspace,
+  onCreateWorkspace,
 }) => {
   const root = React.useMemo(() => normalizePath(rootPath), [rootPath]);
   const quickAccessItems = React.useMemo(
@@ -139,6 +144,11 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
     await ensureLoaded(normalized);
   };
 
+  const handleDragStart = (e: React.DragEvent, path: string) => {
+    e.dataTransfer.setData('text/plain', path);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
   const renderNode = (path: string, level: number) => {
     const normalized = normalizePath(path);
     const isExpanded = expandedPaths.has(normalized);
@@ -148,6 +158,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
     return (
       <div key={normalized}>
         <div
+          draggable
+          onDragStart={(e) => handleDragStart(e, normalized)}
           className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] transition-colors duration-200 ${
             isSelectedPath(normalized, currentPath)
               ? 'border-l-2 border-l-accent bg-muted text-foreground'
@@ -237,6 +249,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
                 <button
                   key={item.path}
                   type="button"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, item.path)}
                   onClick={() => {
                     void onNavigate(item.path);
                   }}
@@ -253,6 +267,15 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
               );
             })}
           </div>
+
+          {onOpenWorkspace && (
+            <WorkspaceSidebarSection
+              onNavigate={(path) => { void onNavigate(path); }}
+              onOpenWorkspace={(workspace) => onOpenWorkspace(workspace.id)}
+              onRenameWorkspace={() => {}}
+              onCreateWorkspace={onCreateWorkspace ?? (() => {})}
+            />
+          )}
         </div>
       </SidebarHeader>
 

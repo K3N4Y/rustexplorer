@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import FileExplorer from "./FileExplorer";
 import type { FileItem } from "./file-types";
+import { WorkspaceProvider } from "@/lib/workspace-provider";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue({ workspaces: [], tags: [], path_tags: {} }),
+}));
 
 const files: FileItem[] = [
   {
@@ -25,14 +30,16 @@ describe("FileExplorer dual-pane behavior", () => {
     const onActivatePane = vi.fn();
 
     render(
-      <FileExplorer
-        initialFiles={files}
-        onLoadFolder={vi.fn().mockResolvedValue([])}
-        paneId="left"
-        paneLabel="Left file pane"
-        isActivePane={false}
-        onActivatePane={onActivatePane}
-      />,
+      <WorkspaceProvider>
+        <FileExplorer
+          initialFiles={files}
+          onLoadFolder={vi.fn().mockResolvedValue([])}
+          paneId="left"
+          paneLabel="Left file pane"
+          isActivePane={false}
+          onActivatePane={onActivatePane}
+        />
+      </WorkspaceProvider>,
     );
 
     const pane = screen.getByTestId("file-pane-left");
@@ -50,16 +57,18 @@ describe("FileExplorer dual-pane behavior", () => {
     const onSelectionChange = vi.fn();
 
     render(
-      <FileExplorer
-        initialFiles={files}
-        onLoadFolder={vi.fn().mockResolvedValue([])}
-        paneId="right"
-        paneLabel="Right file pane"
-        isActivePane={false}
-        selectedIndex={0}
-        onSelectedIndexChange={onSelectedIndexChange}
-        onSelectionChange={onSelectionChange}
-      />,
+      <WorkspaceProvider>
+        <FileExplorer
+          initialFiles={files}
+          onLoadFolder={vi.fn().mockResolvedValue([])}
+          paneId="right"
+          paneLabel="Right file pane"
+          isActivePane={false}
+          selectedIndex={0}
+          onSelectedIndexChange={onSelectedIndexChange}
+          onSelectionChange={onSelectionChange}
+        />
+      </WorkspaceProvider>,
     );
 
     await waitFor(() => {
@@ -77,15 +86,17 @@ describe("FileExplorer dual-pane behavior", () => {
     const onSelectedIndexChange = vi.fn();
 
     render(
-      <FileExplorer
-        initialFiles={files}
-        onLoadFolder={vi.fn().mockResolvedValue([])}
-        paneId="left"
-        paneLabel="Left file pane"
-        isActivePane={true}
-        selectedIndex={0}
-        onSelectedIndexChange={onSelectedIndexChange}
-      />,
+      <WorkspaceProvider>
+        <FileExplorer
+          initialFiles={files}
+          onLoadFolder={vi.fn().mockResolvedValue([])}
+          paneId="left"
+          paneLabel="Left file pane"
+          isActivePane={true}
+          selectedIndex={0}
+          onSelectedIndexChange={onSelectedIndexChange}
+        />
+      </WorkspaceProvider>,
     );
 
     fireEvent.keyDown(window, { key: "ArrowDown" });

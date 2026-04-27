@@ -13,6 +13,8 @@ export interface FileItemShellProps {
   onSelect: (index: number) => void;
   onCopyToInactivePane?: (item: FileItem) => void;
   onMoveToInactivePane?: (item: FileItem) => void;
+  onCreateWorkspace?: () => void;
+  onCreateTag?: () => void;
 }
 
 const FileItemShell: React.FC<FileItemShellProps> = ({
@@ -26,32 +28,45 @@ const FileItemShell: React.FC<FileItemShellProps> = ({
   onSelect,
   onCopyToInactivePane,
   onMoveToInactivePane,
-}) => (
-  <FileContextMenu
-    file={file}
-    onOpen={(item) => void onOpen(item)}
-    onRename={() => {
-      onRename?.(file);
-    }}
-    onDelete={() => {
-      onDelete?.(file);
-    }}
-    onCopyToInactivePane={onCopyToInactivePane}
-    onMoveToInactivePane={onMoveToInactivePane}
-  >
-    <div
-      className={className}
-      onClick={() => {
-        onSelect(index);
+  onCreateWorkspace,
+  onCreateTag,
+}) => {
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', file.path);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  return (
+    <FileContextMenu
+      file={file}
+      onOpen={(item) => void onOpen(item)}
+      onRename={() => {
+        onRename?.(file);
       }}
-      onDoubleClick={() => {
-        onSelect(index);
-        void onOpen(file);
+      onDelete={() => {
+        onDelete?.(file);
       }}
+      onCopyToInactivePane={onCopyToInactivePane}
+      onMoveToInactivePane={onMoveToInactivePane}
+      onCreateWorkspace={onCreateWorkspace}
+      onCreateTag={onCreateTag}
     >
-      {children}
-    </div>
-  </FileContextMenu>
-);
+      <div
+        className={className}
+        draggable
+        onDragStart={handleDragStart}
+        onClick={() => {
+          onSelect(index);
+        }}
+        onDoubleClick={() => {
+          onSelect(index);
+          void onOpen(file);
+        }}
+      >
+        {children}
+      </div>
+    </FileContextMenu>
+  );
+};
 
 export default React.memo(FileItemShell);
