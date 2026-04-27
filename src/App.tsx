@@ -69,6 +69,7 @@ function AppContent() {
   const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const leftPane = useFileNavigation(rootPath);
   const rightPane = useFileNavigation(rootPath);
   const activePaneState = activePane === "left" ? leftPane : rightPane;
@@ -87,7 +88,7 @@ function AppContent() {
     setHistoryIndex,
   } = activePaneState;
 
-  const { workspaces, tags, addToWorkspace } = useWorkspaces();
+  const { workspaces, tags, addToWorkspace, renameWorkspace } = useWorkspaces();
   const { register, unregister } = useCommandRegistry();
   const addToWorkspaceRef = useRef(addToWorkspace);
   addToWorkspaceRef.current = addToWorkspace;
@@ -495,6 +496,7 @@ function AppContent() {
           onNavigate={navigateToPath}
           onOpenWorkspace={handleOpenWorkspace}
           onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
+          onRenameWorkspace={(workspace) => setRenameTarget({ id: workspace.id, name: workspace.name })}
         />
       </Sidebar>
 
@@ -669,6 +671,19 @@ function AppContent() {
       <CommandPaletteDialog />
       <TagManagerDialog open={tagManagerOpen} onOpenChange={setTagManagerOpen} />
       <CreateWorkspaceDialog open={createWorkspaceOpen} onOpenChange={setCreateWorkspaceOpen} />
+      <CreateWorkspaceDialog
+        open={!!renameTarget}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+        initialName={renameTarget?.name ?? ""}
+        onSubmit={(name) => {
+          if (renameTarget) {
+            void renameWorkspace(renameTarget.id, name);
+          }
+          setRenameTarget(null);
+        }}
+      />
       <Toaster />
     </SidebarProvider>
   );

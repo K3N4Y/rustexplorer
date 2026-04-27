@@ -113,4 +113,15 @@ describe("WorkspaceSidebarSection", () => {
 
     expect(screen.getByText("Drop here to create new workspace")).toBeInTheDocument();
   });
+
+  it("calls onRenameWorkspace when Rename is clicked", () => {
+    render(<WorkspaceSidebarSection {...defaultProps} />);
+
+    const renameButton = screen.getAllByText("Rename")[0];
+    fireEvent.click(renameButton);
+
+    expect(defaultProps.onRenameWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ws1", name: "Project Alpha" })
+    );
+  });
 });
