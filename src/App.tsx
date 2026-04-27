@@ -30,6 +30,7 @@ import { CommandPaletteProvider } from "@/components/command-palette/CommandPale
 import { CommandPaletteDialog } from "@/components/command-palette/CommandPaletteDialog";
 import { Toaster } from "@/components/ui/sonner";
 import { useCommandEffect } from "@/hooks/useCommandEffect";
+import { WorkspaceProvider } from "@/lib/workspace-provider";
 
 type TransferMode = "copy" | "move";
 
@@ -560,9 +561,11 @@ function AppContent() {
 
 function App() {
   return (
-    <CommandPaletteProvider>
-      <AppContent />
-    </CommandPaletteProvider>
+    <WorkspaceProvider>
+      <CommandPaletteProvider>
+        <AppContent />
+      </CommandPaletteProvider>
+    </WorkspaceProvider>
   );
 }
 
