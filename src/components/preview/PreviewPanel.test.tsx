@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/core", async () => {
 });
 
 describe("PreviewPanel", () => {
-  it("provides a full-height content area for image previews", () => {
+  it("provides a full-height content area for image previews", async () => {
     render(
       <PreviewPanel
         open
@@ -32,7 +32,7 @@ describe("PreviewPanel", () => {
 
     expect(screen.getByTestId("preview-content-area")).toHaveClass("h-full");
     expect(screen.getByTestId("preview-content-area")).toHaveClass("scrollbar-hidden");
-    expect(screen.getByAltText("Preview")).toHaveAttribute("src", "asset://C:/docs/photo.png");
+    expect(await screen.findByAltText("Preview")).toHaveAttribute("src", "asset://C:/docs/photo.png");
   });
 
   it("resizes up to 60 percent of the viewport", () => {
