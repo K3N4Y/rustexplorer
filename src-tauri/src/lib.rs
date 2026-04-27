@@ -11,7 +11,7 @@ use std::{
     fs::{self, OpenOptions},
     io::{self, Read},
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::{mpsc, OnceLock},
     thread,
 };
 use tauri::{Emitter, Manager, Window};
@@ -170,6 +170,7 @@ async fn search_with_ignore(
     request_id: String,
     window: Window,
 ) -> Result<(), String> {
+    let _ = validate_path_scope(&path)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         // Keep a safe lower/upper bound to avoid invalid or excessive thread counts.
         let thread_count = threads.clamp(1, 32);
@@ -265,6 +266,7 @@ async fn search_with_ignore(
 
 #[tauri::command]
 fn get_files(path: String) -> Result<Vec<FileDetailDTO>, String> {
+    let _ = validate_path_scope(&path)?;
     read_one_level_files(Path::new(&path)).map_err(|err| err.to_string())
 }
 
@@ -277,6 +279,8 @@ fn rename_file(source_path: String, target_name: String) -> Result<(), String> {
     if target_name.contains('/') || target_name.contains('\\') {
         return Err("target name cannot contain path separators".to_string());
     }
+
+    let _ = validate_path_scope(&source_path)?;
 
     let source = Path::new(&source_path);
     let parent = source
@@ -293,6 +297,8 @@ fn rename_file(source_path: String, target_name: String) -> Result<(), String> {
 
 #[tauri::command(rename_all = "snake_case")]
 fn delete_file(target_path: String) -> Result<(), String> {
+    let _ = validate_path_scope(&target_path)?;
+
     let target = Path::new(&target_path);
 
     if !target.exists() {
@@ -306,6 +312,71 @@ fn delete_file(target_path: String) -> Result<(), String> {
     } else {
         fs::remove_file(target).map_err(|err| err.to_string())
     }
+}
+
+fn get_blocked_system_roots() -> &'static Vec<PathBuf> {
+    static BLOCKED: OnceLock<Vec<PathBuf>> = OnceLock::new();
+    BLOCKED.get_or_init(|| {
+        let mut roots = Vec::new();
+        if cfg!(windows) {
+            let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
+            let systemroot = std::env::var("SYSTEMROOT").unwrap_or_else(|_| "C:\\Windows".to_string());
+            let candidates = [
+                windir,
+                systemroot,
+                "C:\\Windows".to_string(),
+                "C:\\Program Files".to_string(),
+                "C:\\Program Files (x86)".to_string(),
+                "C:\\ProgramData".to_string(),
+                "C:\\Recovery".to_string(),
+                "C:\\System Volume Information".to_string(),
+                "C:\\PerfLogs".to_string(),
+            ];
+            for c in &candidates {
+                if let Ok(p) = PathBuf::from(c).canonicalize() {
+                    if !roots.contains(&p) {
+                        roots.push(p);
+                    }
+                }
+            }
+        } else {
+            let candidates = [
+                "/System", "/etc", "/usr", "/bin", "/sbin", "/proc", "/sys", "/dev",
+            ];
+            for c in &candidates {
+                if let Ok(p) = PathBuf::from(c).canonicalize() {
+                    if !roots.contains(&p) {
+                        roots.push(p);
+                    }
+                }
+            }
+        }
+        roots
+    })
+}
+
+fn validate_path_scope(path_str: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path_str);
+    let canonical = if let Ok(c) = path.canonicalize() {
+        c
+    } else {
+        let parent = path.parent()
+            .ok_or_else(|| "invalid path".to_string())?;
+        let canonical_parent = parent.canonicalize()
+            .map_err(|_| "path does not exist or is inaccessible".to_string())?;
+        if let Some(name) = path.file_name() {
+            canonical_parent.join(name)
+        } else {
+            canonical_parent
+        }
+    };
+    let blocked = get_blocked_system_roots();
+    for blocked_path in blocked {
+        if canonical.starts_with(blocked_path) {
+            return Err("access denied: system directory".to_string());
+        }
+    }
+    Ok(canonical)
 }
 
 fn validate_transfer_paths(
@@ -385,6 +456,8 @@ fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), Str
 
 #[tauri::command(rename_all = "snake_case")]
 fn copy_file(source_path: String, destination_dir: String) -> Result<(), String> {
+    let _ = validate_path_scope(&source_path)?;
+    let _ = validate_path_scope(&destination_dir)?;
     let (source, destination) = validate_transfer_paths(&source_path, &destination_dir)?;
 
     if source.is_dir() {
@@ -396,6 +469,8 @@ fn copy_file(source_path: String, destination_dir: String) -> Result<(), String>
 
 #[tauri::command(rename_all = "snake_case")]
 fn move_file(source_path: String, destination_dir: String) -> Result<(), String> {
+    let _ = validate_path_scope(&source_path)?;
+    let _ = validate_path_scope(&destination_dir)?;
     let (source, destination) = validate_transfer_paths(&source_path, &destination_dir)?;
 
     if source.is_dir() {
@@ -508,6 +583,8 @@ fn read_text_preview(target: &Path, preview_limit: usize) -> Result<(String, boo
 
 #[tauri::command]
 fn read_file_preview(path: String, max_bytes: Option<usize>) -> Result<PreviewPayload, String> {
+    let _ = validate_path_scope(&path)?;
+
     let target = Path::new(&path);
 
     if !target.exists() {
