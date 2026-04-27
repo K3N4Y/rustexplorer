@@ -27,6 +27,7 @@ import {
 import { SettingsDialog } from "./components/settings-dialog";
 import PreviewPanel from "./components/preview/PreviewPanel";
 import { usePreview } from "./hooks/usePreview";
+import { homeDir, desktopDir } from "@tauri-apps/api/path";
 import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider";
 import { CommandPaletteDialog } from "@/components/command-palette/CommandPaletteDialog";
 import { Toaster } from "@/components/ui/sonner";
@@ -54,7 +55,18 @@ const createDefaultPaneUiState = (): PaneUiState => ({
 });
 
 function AppContent() {
-  const rootPath = "C:\\Users\\kenay\\OneDrive\\Desktop";
+  const [rootPath, setRootPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    homeDir()
+      .then((path) => setRootPath(path))
+      .catch(() => {
+        desktopDir()
+          .then((path) => setRootPath(path))
+          .catch(() => setRootPath(""));
+      });
+  }, []);
+
   const [searchActivePane, setSearchActivePane] = useState<PaneId | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContentReady, setPreviewContentReady] = useState(false);
@@ -66,14 +78,24 @@ function AppContent() {
   });
   const [internalClipboard, setInternalClipboard] = useState<InternalClipboard>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
-  const [leftViewLocation, setLeftViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
-  const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath });
+  const [leftViewLocation, setLeftViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath ?? "" });
+  const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath ?? "" });
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
-  const leftPane = useFileNavigation(rootPath);
-  const rightPane = useFileNavigation(rootPath);
+  const leftPane = useFileNavigation(rootPath ?? "");
+  const rightPane = useFileNavigation(rootPath ?? "");
   const activePaneState = activePane === "left" ? leftPane : rightPane;
+
+  useEffect(() => {
+    if (rootPath) {
+      void leftPane.navigateToPath(rootPath, { recordHistory: false });
+      void rightPane.navigateToPath(rootPath, { recordHistory: false });
+      setLeftViewLocation({ type: "fs", path: rootPath });
+      setRightViewLocation({ type: "fs", path: rootPath });
+    }
+  }, [rootPath, leftPane, rightPane]);
+
   const {
     canGoBack,
     canGoForward,
@@ -504,6 +526,10 @@ function AppContent() {
       toast.info("Settings", { description: "Not yet implemented" });
     },
   });
+
+  if (rootPath === null) {
+    return <div className="h-screen w-screen bg-background" />;
+  }
 
   return (
     <SidebarProvider defaultOpen={false}>
