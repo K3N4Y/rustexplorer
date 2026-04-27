@@ -475,6 +475,24 @@ function AppContent() {
   });
 
   useCommandEffect({
+    id: "nav-go-to-parent",
+    label: "Go to Parent Directory",
+    description: "Navigate up one level",
+    icon: "ArrowUp",
+    keywords: ["up", "parent", "back", "directory"],
+    category: "Navigation",
+    shortcut: "Alt+Up",
+    action: () => {
+      if (activePane === "left") {
+        void leftPane.navigateToPath(leftPane.parentPath);
+      } else {
+        void rightPane.navigateToPath(rightPane.parentPath);
+      }
+    },
+    isEnabled: () => (activePane === "left" ? leftPane.canGoUp : rightPane.canGoUp),
+  });
+
+  useCommandEffect({
     id: "settings-open",
     label: "Open Settings",
     description: "Open application settings",
