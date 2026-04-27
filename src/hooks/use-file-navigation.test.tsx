@@ -1,7 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileItem } from "../components/file-types";
+import { CommandPaletteProvider } from "../components/command-palette/CommandPaletteProvider";
 import { useFilePaneNavigation } from "./use-file-navigation";
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <CommandPaletteProvider>{children}</CommandPaletteProvider>
+);
 
 const invokeMock = vi.fn();
 
@@ -51,10 +56,13 @@ describe("useFilePaneNavigation", () => {
   });
 
   it("keeps independent pane histories for separate hook instances", async () => {
-    const { result } = renderHook(() => ({
-      left: useFilePaneNavigation("C:/left"),
-      right: useFilePaneNavigation("D:/right"),
-    }));
+    const { result } = renderHook(
+      () => ({
+        left: useFilePaneNavigation("C:/left"),
+        right: useFilePaneNavigation("D:/right"),
+      }),
+      { wrapper }
+    );
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/left" });
@@ -76,7 +84,9 @@ describe("useFilePaneNavigation", () => {
   });
 
   it("resets path and history back to the initial path", async () => {
-    const { result } = renderHook(() => useFilePaneNavigation("C:/root"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/root"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/root" });
@@ -99,7 +109,9 @@ describe("useFilePaneNavigation", () => {
   });
 
   it("copies items to a destination directory with snake_case invoke payloads", async () => {
-    const { result } = renderHook(() => useFilePaneNavigation("C:/source"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/source"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/source" });
@@ -118,7 +130,9 @@ describe("useFilePaneNavigation", () => {
   });
 
   it("moves items to a destination directory with snake_case invoke payloads", async () => {
-    const { result } = renderHook(() => useFilePaneNavigation("C:/source"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/source"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/source" });
@@ -156,7 +170,9 @@ describe("useFilePaneNavigation", () => {
       return Promise.resolve([]);
     });
 
-    const { result } = renderHook(() => useFilePaneNavigation("C:/root"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/root"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/root" });
@@ -210,7 +226,9 @@ describe("useFilePaneNavigation", () => {
       return Promise.resolve(null);
     });
 
-    const { result } = renderHook(() => useFilePaneNavigation("C:/source"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/source"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/source" });
@@ -255,7 +273,9 @@ describe("useFilePaneNavigation", () => {
       return Promise.resolve(null);
     });
 
-    const { result } = renderHook(() => useFilePaneNavigation("C:/source"));
+    const { result } = renderHook(() => useFilePaneNavigation("C:/source"), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_files", { path: "C:/source" });
