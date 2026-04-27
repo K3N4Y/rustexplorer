@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SetStateAction } from "react";
 import type { FileItem } from "../components/file-types";
 import { getParentPath } from "../lib/path-utils";
+import { toast } from "sonner";
 
 
 type FileRecord = {
@@ -110,47 +111,63 @@ export function useFilePaneNavigation(initialPath: string) {
 
   const renameItem = useCallback(
     async (item: FileItem, newName: string) => {
-      await invoke("rename_file", {
-        source_path: item.path,
-        target_name: newName,
-      });
-
-      await navigateToPath(currentPathRef.current);
+      try {
+        await invoke("rename_file", {
+          source_path: item.path,
+          target_name: newName,
+        });
+        toast.success("Renamed successfully");
+        await navigateToPath(currentPathRef.current);
+      } catch {
+        toast.error("Failed to rename");
+      }
     },
     [navigateToPath],
   );
 
   const deleteItem = useCallback(
     async (item: FileItem) => {
-      await invoke("delete_file", {
-        target_path: item.path,
-      });
-
-      await navigateToPath(currentPathRef.current);
+      try {
+        await invoke("delete_file", {
+          target_path: item.path,
+        });
+        toast.success("Deleted successfully");
+        await navigateToPath(currentPathRef.current);
+      } catch {
+        toast.error("Failed to delete");
+      }
     },
     [navigateToPath],
   );
 
   const copyItemToDirectory = useCallback(
     async (item: FileItem, destinationDir: string) => {
-      await invoke("copy_file", {
-        source_path: item.path,
-        destination_dir: destinationDir,
-      });
-
-      await navigateToPath(currentPathRef.current);
+      try {
+        await invoke("copy_file", {
+          source_path: item.path,
+          destination_dir: destinationDir,
+        });
+        toast.success("Copied successfully");
+        await navigateToPath(currentPathRef.current);
+      } catch {
+        toast.error("Failed to copy");
+      }
     },
     [navigateToPath],
   );
 
   const moveItemToDirectory = useCallback(
     async (item: FileItem, destinationDir: string) => {
-      await invoke("move_file", {
-        source_path: item.path,
-        destination_dir: destinationDir,
-      });
-
-      await navigateToPath(currentPathRef.current);
+      try {
+        await invoke("move_file", {
+          source_path: item.path,
+          destination_dir: destinationDir,
+        });
+        toast.success("Moved successfully");
+        await navigateToPath(currentPathRef.current);
+      } catch {
+        toast.error("Failed to move");
+      }
     },
     [navigateToPath],
   );
