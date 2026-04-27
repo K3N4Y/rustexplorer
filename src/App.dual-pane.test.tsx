@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { FileItem } from "./components/file-types";
 
-type PaneId = "left" | "right";
+import type { PaneId } from './types/pane';
 
 type FileExplorerMockProps = {
   paneId?: PaneId;

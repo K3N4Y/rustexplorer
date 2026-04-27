@@ -1,8 +1,7 @@
 import React from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 
-type SortOption = 'name' | 'modified' | 'type' | 'size';
-type SortOrder = 'asc' | 'desc';
+import type { SortOption, SortOrder } from '../types/pane';
 
 interface SortIconProps {
   option: SortOption;

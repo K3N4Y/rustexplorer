@@ -50,10 +50,7 @@ interface FileExplorerProps {
   onCreateTag?: () => void;
 }
 
-type PaneId = 'left' | 'right';
-type SortOption = 'name' | 'modified' | 'type' | 'size';
-type SortOrder = 'asc' | 'desc';
-type ViewMode = 'list' | 'grid';
+import type { PaneId, SortOption, SortOrder, ViewMode } from '../types/pane';
 
 const toOpenablePath = (path: string): string => {
   if (!/^[a-zA-Z]:\\/.test(path)) {
