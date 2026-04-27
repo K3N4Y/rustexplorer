@@ -110,17 +110,27 @@ function AppContent() {
   }, [activePane, refreshPane]);
 
   useEffect(() => {
-    setPaneUi((current) => ({
-      ...current,
-      left: { ...current.left, selectedItem: null, selectedIndex: 0 },
-    }));
+    setPaneUi((current) => {
+      if (current.left.selectedItem === null && current.left.selectedIndex === 0) {
+        return current;
+      }
+      return {
+        ...current,
+        left: { ...current.left, selectedItem: null, selectedIndex: 0 },
+      };
+    });
   }, [leftPane.currentPath]);
 
   useEffect(() => {
-    setPaneUi((current) => ({
-      ...current,
-      right: { ...current.right, selectedItem: null, selectedIndex: 0 },
-    }));
+    setPaneUi((current) => {
+      if (current.right.selectedItem === null && current.right.selectedIndex === 0) {
+        return current;
+      }
+      return {
+        ...current,
+        right: { ...current.right, selectedItem: null, selectedIndex: 0 },
+      };
+    });
   }, [rightPane.currentPath]);
 
   const selectedPreviewItem = paneUi[activePane].selectedItem;

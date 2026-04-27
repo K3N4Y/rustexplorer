@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import FileExplorer from "./FileExplorer";
 import type { FileItem } from "./file-types";
 
@@ -50,7 +50,7 @@ interface FilePaneProps {
   ) => Promise<boolean>;
 }
 
-export default function FilePane({
+function FilePane({
   paneId,
   paneLabel,
   pane,
@@ -157,3 +157,5 @@ export default function FilePane({
     </div>
   );
 }
+
+export default memo(FilePane);
