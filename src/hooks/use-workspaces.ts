@@ -27,12 +27,6 @@ export function useWorkspace(workspaceId: string | null) {
   return workspaces.find((w) => w.id === workspaceId) ?? null;
 }
 
-export function useTagsForPath(path: string) {
-  const { tags, pathTags } = useWorkspaces();
-  const tagIds = pathTags[path] ?? [];
-  return tags.filter((t) => tagIds.includes(t.id));
-}
-
 export function usePathsByTag(tagId: string | null) {
   const { pathTags } = useWorkspaces();
   if (!tagId) return [];

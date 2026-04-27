@@ -1,4 +1,4 @@
-export type CommandCategory =
+type CommandCategory =
   | "Navigation"
   | "File Operations"
   | "Dual Pane"

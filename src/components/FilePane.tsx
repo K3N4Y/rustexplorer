@@ -24,7 +24,7 @@ export type PaneUiState = {
   sortOrder: SortOrder;
 };
 
-export type PaneNavigation = {
+type PaneNavigation = {
   files: FileItem[];
   currentPath: string;
   isLoading: boolean;

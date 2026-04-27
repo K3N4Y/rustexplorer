@@ -1,6 +1,6 @@
 import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
-import { Check, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -124,32 +124,6 @@ function ContextMenuSubContent({
   )
 }
 
-function ContextMenuCheckboxItem({
-  className,
-  children,
-  checked,
-  ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.CheckboxItem>) {
-  return (
-    <ContextMenuPrimitive.CheckboxItem
-      data-slot="context-menu-checkbox-item"
-      className={cn(
-        "relative flex cursor-default items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        <ContextMenuPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
-        </ContextMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </ContextMenuPrimitive.CheckboxItem>
-  )
-}
-
 export {
   ContextMenu,
   ContextMenuTrigger,
@@ -159,5 +133,4 @@ export {
   ContextMenuSub,
   ContextMenuSubTrigger,
   ContextMenuSubContent,
-  ContextMenuCheckboxItem,
 }

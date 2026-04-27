@@ -2,7 +2,7 @@ import React from 'react';
 import { FileContextMenu } from './FileContextMenu';
 import type { FileItem } from './file-types';
 
-export interface FileItemShellProps {
+interface FileItemShellProps {
   file: FileItem;
   index: number;
   className: string;
