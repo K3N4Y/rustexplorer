@@ -182,33 +182,59 @@ export function useFilePaneNavigation(initialPath: string) {
     isEnabled: () => canGoUp,
   });
 
-  return {
-    canGoBack: historyIndex > 0,
-    canGoForward: historyIndex < history.length - 1,
-    canGoUp,
-    currentPath,
-    copyItemToDirectory,
-    deleteItem,
-    errorMessage,
-    files,
-    history,
-    historyIndex,
-    isLoading,
-    loadFolder,
-    navigateToPath,
-    parentPath,
-    moveItemToDirectory,
-    resetToInitialPath,
-    renameItem,
-    setCurrentPath: updateCurrentPath,
-    setFiles,
-    setHistoryIndex: (index: number) => {
-      setNavigationHistory((previous) => ({
-        ...previous,
-        index,
-      }));
-    },
-  };
+  const setHistoryIndex = useCallback((index: number) => {
+    setNavigationHistory((previous) => ({
+      ...previous,
+      index,
+    }));
+  }, []);
+
+  const returnValue = useMemo(
+    () => ({
+      canGoBack: historyIndex > 0,
+      canGoForward: historyIndex < history.length - 1,
+      canGoUp,
+      currentPath,
+      copyItemToDirectory,
+      deleteItem,
+      errorMessage,
+      files,
+      history,
+      historyIndex,
+      isLoading,
+      loadFolder,
+      navigateToPath,
+      parentPath,
+      moveItemToDirectory,
+      resetToInitialPath,
+      renameItem,
+      setCurrentPath: updateCurrentPath,
+      setFiles,
+      setHistoryIndex,
+    }),
+    [
+      historyIndex,
+      history,
+      canGoUp,
+      currentPath,
+      copyItemToDirectory,
+      deleteItem,
+      errorMessage,
+      files,
+      isLoading,
+      loadFolder,
+      navigateToPath,
+      parentPath,
+      moveItemToDirectory,
+      resetToInitialPath,
+      renameItem,
+      updateCurrentPath,
+      setFiles,
+      setHistoryIndex,
+    ],
+  );
+
+  return returnValue;
 }
 
 export function useFileNavigation(rootPath: string) {
