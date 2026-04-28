@@ -27,6 +27,7 @@ interface WorkspaceContextType {
   refresh: () => Promise<void>;
   createWorkspace: (name: string, color?: string) => Promise<AppData | undefined>;
   renameWorkspace: (id: string, name: string) => Promise<AppData | undefined>;
+  changeWorkspaceColor: (id: string, color?: string) => Promise<AppData | undefined>;
   deleteWorkspace: (id: string) => Promise<AppData | undefined>;
   addToWorkspace: (workspaceId: string, path: string) => Promise<AppData | undefined>;
   removeFromWorkspace: (workspaceId: string, path: string) => Promise<AppData | undefined>;
@@ -75,6 +76,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     refresh,
     createWorkspace: (name, color) => mutate("create_workspace", { name, color }) as Promise<AppData | undefined>,
     renameWorkspace: (id, name) => mutate("rename_workspace", { id, name }) as Promise<AppData | undefined>,
+    changeWorkspaceColor: (id, color) => mutate("change_workspace_color", { id, color }) as Promise<AppData | undefined>,
     deleteWorkspace: (id) => mutate("delete_workspace", { id }) as Promise<AppData | undefined>,
     addToWorkspace: (workspaceId, path) => mutate("add_to_workspace", { workspaceId, path }) as Promise<AppData | undefined>,
     removeFromWorkspace: (workspaceId, path) => mutate("remove_from_workspace", { workspaceId, path }) as Promise<AppData | undefined>,

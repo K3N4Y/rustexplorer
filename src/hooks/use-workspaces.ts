@@ -10,6 +10,7 @@ export function useWorkspaces() {
     isLoading: ctx.isLoading,
     createWorkspace: ctx.createWorkspace,
     renameWorkspace: ctx.renameWorkspace,
+    changeWorkspaceColor: ctx.changeWorkspaceColor,
     deleteWorkspace: ctx.deleteWorkspace,
     addToWorkspace: ctx.addToWorkspace,
     removeFromWorkspace: ctx.removeFromWorkspace,

@@ -148,6 +148,7 @@ pub fn run() {
             get_app_data,
             create_workspace,
             rename_workspace,
+            change_workspace_color,
             delete_workspace,
             add_to_workspace,
             remove_from_workspace,
@@ -879,6 +880,34 @@ fn rename_workspace(
             Err("workspace not found".to_string())
         }
     })
+}
+
+fn change_workspace_color_in_data(
+    data: &mut AppData,
+    id: &str,
+    color: Option<String>,
+) -> Result<(), String> {
+    if let Some(ref c) = color {
+        if !is_valid_hex(c) {
+            return Err("color must be a valid hex color (e.g., #ff0000)".to_string());
+        }
+    }
+
+    if let Some(ws) = data.workspaces.iter_mut().find(|w| w.id == id) {
+        ws.color = color;
+        Ok(())
+    } else {
+        Err("workspace not found".to_string())
+    }
+}
+
+#[tauri::command]
+fn change_workspace_color(
+    state: tauri::State<AppDataManager>,
+    id: String,
+    color: Option<String>,
+) -> Result<AppData, String> {
+    state.mutate(|data| change_workspace_color_in_data(data, &id, color))
 }
 
 #[tauri::command]
@@ -1785,5 +1814,83 @@ mod tests {
                 other => panic!("Expected Text fallback, got {:?}", other),
             }
         }
+    }
+
+    #[test]
+    fn test_change_workspace_color_updates_existing_workspace() {
+        let mut data = AppData::default();
+        data.workspaces.push(crate::app_data::Workspace {
+            id: "ws1".to_string(),
+            name: "Project Alpha".to_string(),
+            color: Some("#ff0000".to_string()),
+            paths: vec![],
+        });
+
+        let result = change_workspace_color_in_data(&mut data, "ws1", Some("#00ff00".to_string()));
+
+        assert!(result.is_ok());
+        assert_eq!(data.workspaces[0].color.as_deref(), Some("#00ff00"));
+    }
+
+    #[test]
+    fn test_change_workspace_color_rejects_invalid_hex() {
+        let mut data = AppData::default();
+        data.workspaces.push(crate::app_data::Workspace {
+            id: "ws1".to_string(),
+            name: "Project Alpha".to_string(),
+            color: None,
+            paths: vec![],
+        });
+
+        let result = change_workspace_color_in_data(&mut data, "ws1", Some("blue".to_string()));
+
+        assert_eq!(
+            result.unwrap_err(),
+            "color must be a valid hex color (e.g., #ff0000)"
+        );
+    }
+
+    #[test]
+    fn test_change_workspace_color_clears_color_with_none() {
+        let mut data = AppData::default();
+        data.workspaces.push(crate::app_data::Workspace {
+            id: "ws1".to_string(),
+            name: "Project Alpha".to_string(),
+            color: Some("#ff0000".to_string()),
+            paths: vec![],
+        });
+
+        let result = change_workspace_color_in_data(&mut data, "ws1", None);
+
+        assert!(result.is_ok());
+        assert_eq!(data.workspaces[0].color, None);
+    }
+
+    #[test]
+    fn test_change_workspace_color_rejects_missing_workspace() {
+        let mut data = AppData::default();
+
+        let result = change_workspace_color_in_data(&mut data, "nonexistent", Some("#ff0000".to_string()));
+
+        assert_eq!(
+            result.unwrap_err(),
+            "workspace not found"
+        );
+    }
+
+    #[test]
+    fn test_change_workspace_color_accepts_uppercase_hex() {
+        let mut data = AppData::default();
+        data.workspaces.push(crate::app_data::Workspace {
+            id: "ws1".to_string(),
+            name: "Project Alpha".to_string(),
+            color: None,
+            paths: vec![],
+        });
+
+        let result = change_workspace_color_in_data(&mut data, "ws1", Some("#FF0000".to_string()));
+
+        assert!(result.is_ok());
+        assert_eq!(data.workspaces[0].color.as_deref(), Some("#FF0000"));
     }
 }
