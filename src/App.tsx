@@ -94,8 +94,6 @@ function AppContent() {
 
   useEffect(() => {
     if (rootPath) {
-      void leftPaneRef.current.navigateToPath(rootPath, { recordHistory: false });
-      void rightPaneRef.current.navigateToPath(rootPath, { recordHistory: false });
       setLeftViewLocation({ type: "fs", path: rootPath });
       setRightViewLocation({ type: "fs", path: rootPath });
     }

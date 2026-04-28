@@ -31,6 +31,10 @@ export function useFilePaneNavigation(initialPath: string) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadFolder = useCallback(async (path: string): Promise<FileItem[]> => {
+    if (!path) {
+      return [];
+    }
+
     const response = await invoke<FileRecord[]>("get_files", { path });
 
     return response.map((item) => ({
@@ -174,10 +178,40 @@ export function useFilePaneNavigation(initialPath: string) {
 
   useEffect(() => {
     if (!initialPath) return;
-    navigateToPath(initialPath).catch((error) => {
-      console.error("Error loading initial folder:", error);
-    });
-  }, [navigateToPath, initialPath]);
+
+    let cancelled = false;
+
+    const loadInitial = async () => {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const nextFiles = await loadFolder(initialPath);
+        if (!cancelled) {
+          setFiles(nextFiles);
+          updateCurrentPath(initialPath);
+          setNavigationHistory({
+            entries: [initialPath],
+            index: 0,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error loading initial folder:", error);
+          setErrorMessage("No se pudo cargar esta carpeta. Intenta de nuevo.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadInitial();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadFolder, updateCurrentPath, initialPath]);
 
   const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
   const canGoUp = parentPath !== currentPath;
