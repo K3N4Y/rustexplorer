@@ -87,14 +87,19 @@ function AppContent() {
   const rightPane = useFileNavigation(rootPath ?? "");
   const activePaneState = activePane === "left" ? leftPane : rightPane;
 
+  const leftPaneRef = useRef(leftPane);
+  leftPaneRef.current = leftPane;
+  const rightPaneRef = useRef(rightPane);
+  rightPaneRef.current = rightPane;
+
   useEffect(() => {
     if (rootPath) {
-      void leftPane.navigateToPath(rootPath, { recordHistory: false });
-      void rightPane.navigateToPath(rootPath, { recordHistory: false });
+      void leftPaneRef.current.navigateToPath(rootPath, { recordHistory: false });
+      void rightPaneRef.current.navigateToPath(rootPath, { recordHistory: false });
       setLeftViewLocation({ type: "fs", path: rootPath });
       setRightViewLocation({ type: "fs", path: rootPath });
     }
-  }, [rootPath, leftPane, rightPane]);
+  }, [rootPath]);
 
   const {
     canGoBack,
