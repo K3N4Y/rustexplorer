@@ -71,3 +71,40 @@ describe("CreateWorkspaceDialog - rename mode", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+describe("CreateWorkspaceDialog - create mode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls onCreated with created app data when a workspace is created", async () => {
+    const onCreated = vi.fn();
+    const onOpenChange = vi.fn();
+    const createdData = {
+      workspaces: [{ id: "ws-new", name: "Dropped", color: "#3b82f6", paths: [] }],
+      tags: [],
+      path_tags: {},
+    };
+    mockCreateWorkspace.mockResolvedValueOnce(createdData);
+
+    render(
+      <CreateWorkspaceDialog
+        open
+        onOpenChange={onOpenChange}
+        onCreated={onCreated}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Workspace name"), {
+      target: { value: "Dropped" },
+    });
+    fireEvent.submit(screen.getByPlaceholderText("Workspace name").closest("form")!);
+
+    await waitFor(() => {
+      expect(mockCreateWorkspace).toHaveBeenCalledTimes(1);
+      expect(mockCreateWorkspace.mock.calls[0][0]).toBe("Dropped");
+      expect(onCreated).toHaveBeenCalledWith(createdData);
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+});

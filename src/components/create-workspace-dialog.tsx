@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWorkspaces } from "@/hooks/use-workspaces";
+import type { AppData } from "@/lib/workspace-provider";
 
 interface CreateWorkspaceDialogProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface CreateWorkspaceDialogProps {
   initialName?: string;
   initialColor?: string;
   onSubmit?: (name: string) => void;
+  onCreated?: (data: AppData | undefined) => void;
 }
 
 export function CreateWorkspaceDialog({
@@ -23,6 +25,7 @@ export function CreateWorkspaceDialog({
   initialName = "",
   initialColor = "",
   onSubmit,
+  onCreated,
 }: CreateWorkspaceDialogProps) {
   const { createWorkspace } = useWorkspaces();
   const [name, setName] = useState(initialName);
@@ -37,7 +40,7 @@ export function CreateWorkspaceDialog({
   }, [open, initialName, initialColor]);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = name.trim();
       if (!trimmed) return;
@@ -45,11 +48,12 @@ export function CreateWorkspaceDialog({
       if (isRename) {
         onSubmit?.(trimmed);
       } else {
-        void createWorkspace(trimmed, color || undefined);
+        const data = await createWorkspace(trimmed, color || undefined);
+        onCreated?.(data);
       }
       onOpenChange(false);
     },
-    [name, color, isRename, onSubmit, createWorkspace, onOpenChange]
+    [name, color, isRename, onSubmit, onCreated, createWorkspace, onOpenChange]
   );
 
   return (
