@@ -62,7 +62,6 @@ interface FilePaneProps {
   onRenameWorkspace?: (workspaceId: string) => void;
   onDeleteWorkspace?: (workspaceId: string) => void;
   onChangeWorkspaceColor?: (workspaceId: string) => void;
-  onBackToFiles?: (path: string) => void;
 }
 
 function FilePane({
@@ -219,8 +218,8 @@ function FilePane({
       onViewModeChange: handleViewModeChange,
       onSortChange: handleSortChange,
       onActivatePane: setActivePane,
-      onCopyToInactivePane: handleCopyToInactivePane,
-      onMoveToInactivePane: handleMoveToInactivePane,
+      onCopyToInactivePane: dualMode ? handleCopyToInactivePane : undefined,
+      onMoveToInactivePane: dualMode ? handleMoveToInactivePane : undefined,
       onCreateWorkspace,
       onCreateTag,
     }),
@@ -236,6 +235,7 @@ function FilePane({
       handleViewModeChange,
       handleSortChange,
       setActivePane,
+      dualMode,
       handleCopyToInactivePane,
       handleMoveToInactivePane,
       onCreateWorkspace,

@@ -1,12 +1,17 @@
 import { useWorkspaceContext } from "@/lib/workspace-provider";
+import type { Tag, Workspace } from "@/lib/workspace-provider";
+
+const EMPTY_WORKSPACES: Workspace[] = [];
+const EMPTY_TAGS: Tag[] = [];
+const EMPTY_PATH_TAGS: Record<string, string[]> = {};
 
 export function useWorkspaces() {
   const ctx = useWorkspaceContext();
 
   return {
-    workspaces: ctx.appData?.workspaces ?? [],
-    tags: ctx.appData?.tags ?? [],
-    pathTags: ctx.appData?.path_tags ?? {},
+    workspaces: ctx.appData?.workspaces ?? EMPTY_WORKSPACES,
+    tags: ctx.appData?.tags ?? EMPTY_TAGS,
+    pathTags: ctx.appData?.path_tags ?? EMPTY_PATH_TAGS,
     isLoading: ctx.isLoading,
     createWorkspace: ctx.createWorkspace,
     renameWorkspace: ctx.renameWorkspace,

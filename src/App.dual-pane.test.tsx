@@ -72,6 +72,24 @@ const desktopRoot = navigationMock.desktopRoot;
 const alphaFile = navigationMock.alphaFile as FileItem;
 const betaFile = navigationMock.betaFile as FileItem;
 
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockImplementation(async (command: string) => {
+    if (command === "get_app_data") {
+      return {
+        workspaces: [],
+        tags: [],
+        path_tags: {},
+      };
+    }
+    return null;
+  }),
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+  homeDir: vi.fn().mockResolvedValue(navigationMock.desktopRoot),
+  desktopDir: vi.fn().mockResolvedValue(navigationMock.desktopRoot),
+}));
+
 vi.mock("./hooks/use-file-navigation", () => ({
   useFileNavigation: () => {
     const pane = navigationMock.callCount % 2 === 0 ? navigationMock.leftPane : navigationMock.rightPane;
@@ -158,48 +176,63 @@ vi.mock("./components/preview/PreviewPanel", async () => {
   };
 });
 
-vi.mock("./components/FileExplorer", () => ({
-  default: ({
-    paneId = "left",
-    paneLabel = "File explorer",
-    isSearchActive,
-    isActivePane,
-    selectedIndex,
-    onActivatePane,
-    onSelectionChange,
-    onTogglePreview,
-    onCopyToInactivePane,
-    onMoveToInactivePane,
-  }: FileExplorerMockProps) => (
-    <section
-      aria-label={paneLabel}
-      data-active={String(isActivePane)}
-      data-search-active={String(isSearchActive)}
-      data-selected-index={selectedIndex}
-    >
-      <div>Pane: {paneId}</div>
-      <button type="button" onClick={() => onActivatePane?.(paneId)}>
-        Activate {paneId}
-      </button>
-      <button type="button" onClick={() => onSelectionChange?.(paneId === "left" ? alphaFile : betaFile)}>
-        Select {paneId}
-      </button>
-      <button type="button" onClick={() => onTogglePreview?.()}>
-        Toggle preview {paneId}
-      </button>
-      {onCopyToInactivePane ? (
-        <button type="button" onClick={() => onCopyToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
-          Copy to inactive pane {paneId}
-        </button>
-      ) : null}
-      {onMoveToInactivePane ? (
-        <button type="button" onClick={() => onMoveToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
-          Move to inactive pane {paneId}
-        </button>
-      ) : null}
-    </section>
-  ),
-}));
+vi.mock("./components/FileExplorer", async () => {
+  const { useFilePaneContext } = await vi.importActual<typeof import("./components/FilePaneContext")>(
+    "./components/FilePaneContext",
+  );
+
+  return {
+    default: (_props: FileExplorerMockProps) => {
+      const {
+        paneId = "left",
+        paneLabel = "File explorer",
+        isSearchActive,
+        isActivePane,
+        selectedIndex,
+        onActivatePane,
+        onSelectionChange,
+        onTogglePreview,
+        onCopyToInactivePane,
+        onMoveToInactivePane,
+      } = useFilePaneContext();
+
+      return (
+        <section
+          aria-label={paneLabel}
+          data-active={String(isActivePane)}
+          data-search-active={String(isSearchActive)}
+          data-selected-index={selectedIndex}
+        >
+          <div>Pane: {paneId}</div>
+          <button type="button" onClick={() => onActivatePane?.(paneId)}>
+            Activate {paneId}
+          </button>
+          <button type="button" onClick={() => onSelectionChange?.(paneId === "left" ? alphaFile : betaFile)}>
+            Select {paneId}
+          </button>
+          <button type="button" onClick={() => onTogglePreview?.()}>
+            Toggle preview {paneId}
+          </button>
+          {onCopyToInactivePane ? (
+            <button type="button" onClick={() => onCopyToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
+              Copy to inactive pane {paneId}
+            </button>
+          ) : null}
+          {onMoveToInactivePane ? (
+            <button type="button" onClick={() => onMoveToInactivePane(paneId === "left" ? alphaFile : betaFile)}>
+              Move to inactive pane {paneId}
+            </button>
+          ) : null}
+        </section>
+      );
+    },
+  };
+});
+
+async function renderApp() {
+  render(<App />);
+  await screen.findByRole("button", { name: "Toggle dual-pane split view" });
+}
 
 describe("App dual-pane lifecycle", () => {
   beforeEach(() => {
@@ -218,16 +251,16 @@ describe("App dual-pane lifecycle", () => {
     }
   });
 
-  it("renders single-pane by default", () => {
-    render(<App />);
+  it("renders single-pane by default", async () => {
+    await renderApp();
 
     expect(screen.getByLabelText("Left file pane")).toBeInTheDocument();
     expect(screen.queryByLabelText("Right file pane")).not.toBeInTheDocument();
     expect(screen.getByTestId("pane-grid")).toHaveClass("single-pane-grid");
   });
 
-  it("does not expose inactive-pane transfer actions in single-pane mode", () => {
-    render(<App />);
+  it("does not expose inactive-pane transfer actions in single-pane mode", async () => {
+    await renderApp();
 
     const leftPane = screen.getByLabelText("Left file pane");
 
@@ -235,8 +268,8 @@ describe("App dual-pane lifecycle", () => {
     expect(within(leftPane).queryByRole("button", { name: "Move to inactive pane left" })).not.toBeInTheDocument();
   });
 
-  it("exposes inactive-pane transfer actions in dual-pane mode", () => {
-    render(<App />);
+  it("exposes inactive-pane transfer actions in dual-pane mode", async () => {
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
 
@@ -249,8 +282,8 @@ describe("App dual-pane lifecycle", () => {
     expect(within(rightPane).getByRole("button", { name: "Move to inactive pane right" })).toBeInTheDocument();
   });
 
-  it("toggles the right pane at the desktop root", () => {
-    render(<App />);
+  it("toggles the right pane at the desktop root", async () => {
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
 
@@ -259,8 +292,8 @@ describe("App dual-pane lifecycle", () => {
     expect(screen.getByTestId("pane-grid")).toHaveClass("split-view-grid");
   });
 
-  it("removes the right pane when dual pane is disabled", () => {
-    render(<App />);
+  it("removes the right pane when dual pane is disabled", async () => {
+    await renderApp();
 
     const toggle = screen.getByRole("button", { name: "Toggle dual-pane split view" });
     fireEvent.click(toggle);
@@ -271,8 +304,8 @@ describe("App dual-pane lifecycle", () => {
     expect(screen.getByTestId("pane-grid")).toHaveClass("single-pane-grid");
   });
 
-  it("resets the hidden right pane before dual pane is re-enabled", () => {
-    render(<App />);
+  it("resets the hidden right pane before dual pane is re-enabled", async () => {
+    await renderApp();
 
     const toggle = screen.getByRole("button", { name: "Toggle dual-pane split view" });
     fireEvent.click(toggle);
@@ -283,8 +316,8 @@ describe("App dual-pane lifecycle", () => {
     expect(navigationMock.rightPane.resetToInitialPath).toHaveBeenCalledTimes(resetsAfterInitialEnable + 1);
   });
 
-  it("marks search active only on the active pane", () => {
-    render(<App />);
+  it("marks search active only on the active pane", async () => {
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
     fireEvent.click(screen.getByRole("button", { name: "Start search" }));
@@ -298,8 +331,8 @@ describe("App dual-pane lifecycle", () => {
     expect(screen.getByLabelText("Right file pane")).toHaveAttribute("data-search-active", "false");
   });
 
-  it("uses the active pane selection for the shared preview", () => {
-    render(<App />);
+  it("uses the active pane selection for the shared preview", async () => {
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
 
@@ -325,7 +358,7 @@ describe("App dual-pane lifecycle", () => {
   });
 
   it("copies the active selection to the inactive pane with F5", async () => {
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
     const leftPane = screen.getByLabelText("Left file pane");
@@ -343,7 +376,7 @@ describe("App dual-pane lifecycle", () => {
   });
 
   it("moves the active selection to the inactive pane with F6", async () => {
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
     const leftPane = screen.getByLabelText("Left file pane");
@@ -361,7 +394,7 @@ describe("App dual-pane lifecycle", () => {
   });
 
   it("copies from the internal clipboard after switching panes", async () => {
-    render(<App />);
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
     const leftPane = screen.getByLabelText("Left file pane");
@@ -380,8 +413,8 @@ describe("App dual-pane lifecycle", () => {
     expect(navigationMock.rightPane.navigateToPath).toHaveBeenCalledWith(desktopRoot, { recordHistory: false });
   });
 
-  it("does not render cross-pane drag-and-drop UI", () => {
-    render(<App />);
+  it("does not render cross-pane drag-and-drop UI", async () => {
+    await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
 

@@ -19,6 +19,22 @@ import { useFileNavigation } from "./hooks/use-file-navigation";
 import { getPathLabel } from "./lib/path-utils";
 import { Button } from "./components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./components/ui/dialog";
+import {
   Sidebar,
   SidebarInset,
   SidebarProvider,
@@ -37,22 +53,6 @@ import { useWorkspaces } from "@/hooks/use-workspaces";
 import { WorkspaceProvider } from "@/lib/workspace-provider";
 import { TagManagerDialog } from "@/components/tag-manager-dialog";
 import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./components/ui/dialog";
 
 type TransferMode = "copy" | "move";
 
@@ -98,9 +98,9 @@ function AppContent() {
   const [rightViewLocation, setRightViewLocation] = useState<ViewLocation>({ type: "fs", path: rootPath ?? "" });
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
-  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null);
   const workspaceIdsBeforeCreateRef = useRef<Set<string>>(new Set());
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteWorkspaceTarget, setDeleteWorkspaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [colorTarget, setColorTarget] = useState<{ id: string; name: string; color: string } | null>(null);
   const leftPane = useFileNavigation(rootPath ?? "");
@@ -196,6 +196,38 @@ function AppContent() {
     setPendingWorkspacePath(path);
     setCreateWorkspaceOpen(true);
   }, [workspaces]);
+
+  const handleRenameWorkspace = useCallback((workspaceId: string) => {
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+    if (workspace) {
+      setRenameTarget({ id: workspace.id, name: workspace.name });
+    }
+  }, [workspaces]);
+
+  const handleDeleteWorkspace = useCallback((workspaceId: string) => {
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+    if (workspace) {
+      setDeleteWorkspaceTarget({ id: workspace.id, name: workspace.name });
+    }
+  }, [workspaces]);
+
+  const handleChangeWorkspaceColor = useCallback((workspaceId: string) => {
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+    if (workspace) {
+      setColorTarget({
+        id: workspace.id,
+        name: workspace.name,
+        color: workspace.color ?? "#3b82f6",
+      });
+    }
+  }, [workspaces]);
+
+  const activeWorkspaceId =
+    activePane === "left" && leftViewLocation.type === "workspace"
+      ? leftViewLocation.workspaceId
+      : activePane === "right" && rightViewLocation.type === "workspace"
+        ? rightViewLocation.workspaceId
+        : null;
 
   useEffect(() => {
     setPaneUi((current) => {
@@ -581,15 +613,9 @@ function AppContent() {
           onLoadFolder={loadFolder}
           onNavigate={navigateToPath}
           onOpenWorkspace={handleOpenWorkspace}
+          activeWorkspaceId={activeWorkspaceId}
           onCreateWorkspace={handleCreateWorkspace}
           onCreateWorkspaceFromPath={handleCreateWorkspaceFromPath}
-          activeWorkspaceId={
-            activePane === "left" && leftViewLocation.type === "workspace"
-              ? leftViewLocation.workspaceId
-              : activePane === "right" && rightViewLocation.type === "workspace"
-                ? rightViewLocation.workspaceId
-                : null
-          }
           onRenameWorkspace={(workspace) => setRenameTarget({ id: workspace.id, name: workspace.name })}
         />
       </Sidebar>
@@ -712,26 +738,11 @@ function AppContent() {
                 setPreviewOpen={setPreviewOpen}
                 setActivePane={setActivePane}
                 performTransfer={performTransfer}
-                onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
+                onCreateWorkspace={handleCreateWorkspace}
                 onCreateTag={() => setTagManagerOpen(true)}
-                onRenameWorkspace={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) setRenameTarget({ id: workspace.id, name: workspace.name });
-                }}
-                onDeleteWorkspace={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) setDeleteWorkspaceTarget({ id: workspace.id, name: workspace.name });
-                }}
-                onChangeWorkspaceColor={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) {
-                    setColorTarget({
-                      id: workspace.id,
-                      name: workspace.name,
-                      color: workspace.color ?? "#3b82f6",
-                    });
-                  }
-                }}
+                onRenameWorkspace={handleRenameWorkspace}
+                onDeleteWorkspace={handleDeleteWorkspace}
+                onChangeWorkspaceColor={handleChangeWorkspaceColor}
               />
               {dualMode ? (
                 <FilePane
@@ -752,26 +763,11 @@ function AppContent() {
                   setPreviewOpen={setPreviewOpen}
                   setActivePane={setActivePane}
                   performTransfer={performTransfer}
-                onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
-                onCreateTag={() => setTagManagerOpen(true)}
-                onRenameWorkspace={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) setRenameTarget({ id: workspace.id, name: workspace.name });
-                }}
-                onDeleteWorkspace={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) setDeleteWorkspaceTarget({ id: workspace.id, name: workspace.name });
-                }}
-                onChangeWorkspaceColor={(workspaceId) => {
-                  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
-                  if (workspace) {
-                    setColorTarget({
-                      id: workspace.id,
-                      name: workspace.name,
-                      color: workspace.color ?? "#3b82f6",
-                    });
-                  }
-                }}
+                  onCreateWorkspace={handleCreateWorkspace}
+                  onCreateTag={() => setTagManagerOpen(true)}
+                  onRenameWorkspace={handleRenameWorkspace}
+                  onDeleteWorkspace={handleDeleteWorkspace}
+                  onChangeWorkspaceColor={handleChangeWorkspaceColor}
                 />
               ) : null}
               {operationError ? (
@@ -809,7 +805,7 @@ function AppContent() {
         onCreated={(data) => {
           if (!pendingWorkspacePath || !data) return;
           const workspace = data.workspaces.find(
-            (candidate) => !workspaceIdsBeforeCreateRef.current.has(candidate.id)
+            (candidate) => !workspaceIdsBeforeCreateRef.current.has(candidate.id),
           );
           if (workspace) {
             void addToWorkspace(workspace.id, pendingWorkspacePath);
@@ -857,7 +853,6 @@ function AppContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       <Dialog
         open={!!colorTarget}
         onOpenChange={(open) => {
@@ -875,7 +870,7 @@ function AppContent() {
               value={colorTarget?.color ?? "#3b82f6"}
               onChange={(event) => {
                 setColorTarget((current) =>
-                  current ? { ...current, color: event.target.value } : current
+                  current ? { ...current, color: event.target.value } : current,
                 );
               }}
               className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
