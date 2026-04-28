@@ -7,7 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { PreviewPayload } from '../types';
-import { PdfPageCanvas } from './PdfPageCanvas';
+import { PdfPageCanvas } from './pdfPageCanvas';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
