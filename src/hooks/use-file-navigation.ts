@@ -173,6 +173,7 @@ export function useFilePaneNavigation(initialPath: string) {
   );
 
   useEffect(() => {
+    if (!initialPath) return;
     navigateToPath(initialPath).catch((error) => {
       console.error("Error loading initial folder:", error);
     });
