@@ -25,6 +25,8 @@ interface FileTreeSidebarProps {
   onOpenWorkspace?: (workspaceId: string) => void;
   onCreateWorkspace?: () => void;
   onRenameWorkspace?: (workspace: Workspace) => void;
+  activeWorkspaceId?: string | null;
+  onCreateWorkspaceFromPath?: (path: string) => void;
 }
 
 function getNodeName(path: string): string {
@@ -67,6 +69,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   onOpenWorkspace,
   onCreateWorkspace,
   onRenameWorkspace,
+  activeWorkspaceId,
+  onCreateWorkspaceFromPath,
 }) => {
   const root = React.useMemo(() => normalizePath(rootPath), [rootPath]);
   const quickAccessItems = React.useMemo(
@@ -279,6 +283,8 @@ const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
               onOpenWorkspace={(workspace) => onOpenWorkspace(workspace.id)}
               onRenameWorkspace={onRenameWorkspace ?? (() => {})}
               onCreateWorkspace={onCreateWorkspace ?? (() => {})}
+              activeWorkspaceId={activeWorkspaceId}
+              onCreateWorkspaceFromPath={onCreateWorkspaceFromPath}
             />
           )}
         </div>

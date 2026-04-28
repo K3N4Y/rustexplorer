@@ -59,6 +59,10 @@ interface FilePaneProps {
   ) => Promise<boolean>;
   onCreateWorkspace?: () => void;
   onCreateTag?: () => void;
+  onRenameWorkspace?: (workspaceId: string) => void;
+  onDeleteWorkspace?: (workspaceId: string) => void;
+  onChangeWorkspaceColor?: (workspaceId: string) => void;
+  onBackToFiles?: (path: string) => void;
 }
 
 function FilePane({
@@ -81,6 +85,9 @@ function FilePane({
   performTransfer,
   onCreateWorkspace,
   onCreateTag,
+  onRenameWorkspace,
+  onDeleteWorkspace,
+  onChangeWorkspaceColor,
 }: FilePaneProps) {
   const inactivePane = paneId === "left" ? "right" : "left";
   const {
@@ -277,8 +284,14 @@ function FilePane({
           </div>
           <WorkspaceView
             workspaceId={effectiveViewLocation.workspaceId}
+            currentPath={currentPath}
+            selectedItemPath={ui.selectedItem?.path ?? null}
             onNavigate={handleWorkspaceItemNavigate}
             onTagClick={handleTagClick}
+            onRenameWorkspace={() => onRenameWorkspace?.(effectiveViewLocation.workspaceId)}
+            onDeleteWorkspace={() => onDeleteWorkspace?.(effectiveViewLocation.workspaceId)}
+            onChangeWorkspaceColor={() => onChangeWorkspaceColor?.(effectiveViewLocation.workspaceId)}
+            onBackToFiles={(path) => onViewLocationChange?.({ type: "fs", path })}
           />
         </div>
       ) : effectiveViewLocation?.type === "tag" ? (
