@@ -5,11 +5,8 @@ import { WorkspaceView } from "./workspace-view";
 import { TagFilterView } from "./tag-filter-view";
 import BreadcrumbPath from "./BreadcrumbPath";
 import { useWorkspaces } from "@/hooks/use-workspaces";
-
-export type PaneId = "left" | "right";
-export type ViewMode = "list" | "grid";
-export type SortOption = "name" | "modified" | "type" | "size";
-export type SortOrder = "asc" | "desc";
+import { FilePaneStateProvider, FilePaneActionProvider } from "./FilePaneContext";
+import type { PaneId, ViewMode, SortOption, SortOrder } from "../types/pane";
 
 export type ViewLocation =
   | { type: "fs"; path: string }
@@ -86,6 +83,18 @@ function FilePane({
   onCreateTag,
 }: FilePaneProps) {
   const inactivePane = paneId === "left" ? "right" : "left";
+  const {
+    setCurrentPath,
+    setFiles,
+    navigateToPath,
+    currentPath,
+    isLoading,
+    errorMessage,
+    loadFolder,
+    renameItem,
+    deleteItem,
+    files,
+  } = pane;
   const { workspaces, tags } = useWorkspaces();
 
   const effectiveViewLocation = useMemo(() => {
@@ -134,33 +143,105 @@ function FilePane({
   }, [setPreviewOpen]);
 
   const handleRetry = useCallback(async () => {
-    await pane.navigateToPath(pane.currentPath);
-  }, [pane]);
+    await navigateToPath(currentPath);
+  }, [navigateToPath, currentPath]);
 
   const handlePathChange = useCallback(
     (path: string, nextFiles: FileItem[]) => {
-      pane.setCurrentPath(path);
-      pane.setFiles(nextFiles);
+      setCurrentPath(path);
+      setFiles(nextFiles);
     },
-    [pane],
+    [setCurrentPath, setFiles],
   );
 
-  const handleCopyToInactivePane = useMemo(() => {
-    if (!dualMode) return undefined;
-    return (item: FileItem) => void performTransfer("copy", paneId, inactivePane, item);
-  }, [dualMode, performTransfer, paneId, inactivePane]);
+  const handleCopyToInactivePane = useCallback(
+    (item: FileItem) => {
+      if (!dualMode) return;
+      void performTransfer("copy", paneId, inactivePane, item);
+    },
+    [dualMode, performTransfer, paneId, inactivePane],
+  );
 
-  const handleMoveToInactivePane = useMemo(() => {
-    if (!dualMode) return undefined;
-    return (item: FileItem) => void performTransfer("move", paneId, inactivePane, item);
-  }, [dualMode, performTransfer, paneId, inactivePane]);
+  const handleMoveToInactivePane = useCallback(
+    (item: FileItem) => {
+      if (!dualMode) return;
+      void performTransfer("move", paneId, inactivePane, item);
+    },
+    [dualMode, performTransfer, paneId, inactivePane],
+  );
+
+  const stateValue = useMemo(
+    () => ({
+      currentPath: currentPath,
+      isLoading,
+      isSearchActive: searchActivePane === paneId && activePane === paneId,
+      errorMessage,
+      paneId,
+      paneLabel,
+      isActivePane: activePane === paneId,
+      viewMode: ui.viewMode,
+      sortBy: ui.sortBy,
+      sortOrder: ui.sortOrder,
+      selectedIndex: ui.selectedIndex,
+    }),
+    [
+      currentPath,
+      isLoading,
+      errorMessage,
+      searchActivePane,
+      paneId,
+      activePane,
+      paneLabel,
+      ui.viewMode,
+      ui.sortBy,
+      ui.sortOrder,
+      ui.selectedIndex,
+    ],
+  );
+
+  const actionValue = useMemo(
+    () => ({
+      onLoadFolder: loadFolder,
+      onPathChange: handlePathChange,
+      onRenameItem: renameItem,
+      onDeleteItem: deleteItem,
+      onRetry: handleRetry,
+      onSelectionChange: handleSelectionChange,
+      onTogglePreview: handleTogglePreview,
+      onSelectedIndexChange: handleSelectedIndexChange,
+      onViewModeChange: handleViewModeChange,
+      onSortChange: handleSortChange,
+      onActivatePane: setActivePane,
+      onCopyToInactivePane: handleCopyToInactivePane,
+      onMoveToInactivePane: handleMoveToInactivePane,
+      onCreateWorkspace,
+      onCreateTag,
+    }),
+    [
+      loadFolder,
+      handlePathChange,
+      renameItem,
+      deleteItem,
+      handleRetry,
+      handleSelectionChange,
+      handleTogglePreview,
+      handleSelectedIndexChange,
+      handleViewModeChange,
+      handleSortChange,
+      setActivePane,
+      handleCopyToInactivePane,
+      handleMoveToInactivePane,
+      onCreateWorkspace,
+      onCreateTag,
+    ],
+  );
 
   const handleWorkspaceItemNavigate = useCallback(
     async (path: string) => {
       onViewLocationChange?.({ type: "fs", path });
-      await pane.navigateToPath(path);
+      await navigateToPath(path);
     },
-    [pane, onViewLocationChange],
+    [navigateToPath, onViewLocationChange],
   );
 
   const handleTagClick = useCallback(
@@ -175,9 +256,9 @@ function FilePane({
       if (effectiveViewLocation?.type !== "fs") {
         onViewLocationChange?.({ type: "fs", path });
       }
-      await pane.navigateToPath(path);
+      await navigateToPath(path);
     },
-    [effectiveViewLocation, onViewLocationChange, pane],
+    [effectiveViewLocation, onViewLocationChange, navigateToPath],
   );
 
   return (
@@ -189,7 +270,7 @@ function FilePane({
         <div className="relative mx-auto w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
           <div className="sticky top-0 z-10 border-b border-border bg-card">
             <BreadcrumbPath
-              currentPath={pane.currentPath}
+              currentPath={currentPath}
               onNavigate={handleBreadcrumbNavigate}
               viewLocation={effectiveViewLocation}
             />
@@ -204,7 +285,7 @@ function FilePane({
         <div className="relative mx-auto w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
           <div className="sticky top-0 z-10 border-b border-border bg-card">
             <BreadcrumbPath
-              currentPath={pane.currentPath}
+              currentPath={currentPath}
               onNavigate={handleBreadcrumbNavigate}
               viewLocation={effectiveViewLocation}
             />
@@ -215,35 +296,13 @@ function FilePane({
           />
         </div>
       ) : (
-        <FileExplorer
-          initialFiles={pane.files}
-          initialPath={pane.currentPath}
-          isLoading={pane.isLoading}
-          isSearchActive={searchActivePane === paneId && activePane === paneId}
-          errorMessage={pane.errorMessage}
-          onLoadFolder={pane.loadFolder}
-          onRenameItem={pane.renameItem}
-          onDeleteItem={pane.deleteItem}
-          onRetry={handleRetry}
-          onSelectionChange={handleSelectionChange}
-          onTogglePreview={handleTogglePreview}
-          onPathChange={handlePathChange}
-          paneId={paneId}
-          paneLabel={paneLabel}
-          isActivePane={activePane === paneId}
-          selectedIndex={ui.selectedIndex}
-          viewMode={ui.viewMode}
-          sortBy={ui.sortBy}
-          sortOrder={ui.sortOrder}
-          onSelectedIndexChange={handleSelectedIndexChange}
-          onViewModeChange={handleViewModeChange}
-          onSortChange={handleSortChange}
-          onActivatePane={setActivePane}
-          onCopyToInactivePane={handleCopyToInactivePane}
-          onMoveToInactivePane={handleMoveToInactivePane}
-          onCreateWorkspace={onCreateWorkspace}
-          onCreateTag={onCreateTag}
-        />
+        <FilePaneStateProvider value={stateValue}>
+          <FilePaneActionProvider value={actionValue}>
+            <FileExplorer
+              initialFiles={files}
+            />
+          </FilePaneActionProvider>
+        </FilePaneStateProvider>
       )}
     </div>
   );

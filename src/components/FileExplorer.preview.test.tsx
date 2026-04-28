@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import FileExplorer from "./FileExplorer";
 import { WorkspaceProvider } from "@/lib/workspace-provider";
+import { FilePaneProvider } from "./FilePaneContext";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue({ workspaces: [], tags: [], path_tags: {} }),
@@ -13,24 +14,36 @@ describe("FileExplorer preview toggle", () => {
 
     render(
       <WorkspaceProvider>
-        <FileExplorer
-          initialFiles={[
-            {
-              name: "notes.txt",
-              path: "C:/notes.txt",
-              size: 10,
-              modified: null,
-              isDirectory: false,
-            },
-          ]}
-          onLoadFolder={vi.fn().mockResolvedValue([])}
-          onTogglePreview={onTogglePreview}
-          onSelectionChange={vi.fn()}
-        />
+        <FilePaneProvider
+          value={{
+            currentPath: '/',
+            paneId: 'left',
+            paneLabel: 'File explorer',
+            selectedIndex: 0,
+            viewMode: 'list',
+            sortBy: 'name',
+            sortOrder: 'asc',
+            onLoadFolder: vi.fn().mockResolvedValue([]),
+            onTogglePreview,
+            onSelectionChange: vi.fn(),
+          }}
+        >
+          <FileExplorer
+            initialFiles={[
+              {
+                name: "notes.txt",
+                path: "C:/notes.txt",
+                size: 10,
+                modified: null,
+                isDirectory: false,
+              },
+            ]}
+          />
+        </FilePaneProvider>
       </WorkspaceProvider>
     );
 
-    fireEvent.keyDown(window, { key: " " });
+    fireEvent.keyDown(screen.getByTestId("file-pane-left"), { key: " " });
 
     expect(onTogglePreview).toHaveBeenCalledTimes(1);
   });
@@ -56,12 +69,22 @@ describe("FileExplorer preview toggle", () => {
 
     render(
       <WorkspaceProvider>
-        <FileExplorer
-          initialFiles={files}
-          onLoadFolder={vi.fn().mockResolvedValue([])}
-          onTogglePreview={vi.fn()}
-          onSelectionChange={onSelectionChange}
-        />
+        <FilePaneProvider
+          value={{
+            currentPath: '/',
+            paneId: 'left',
+            paneLabel: 'File explorer',
+            selectedIndex: 0,
+            viewMode: 'list',
+            sortBy: 'name',
+            sortOrder: 'asc',
+            onLoadFolder: vi.fn().mockResolvedValue([]),
+            onTogglePreview: vi.fn(),
+            onSelectionChange,
+          }}
+        >
+          <FileExplorer initialFiles={files} />
+        </FilePaneProvider>
       </WorkspaceProvider>
     );
 

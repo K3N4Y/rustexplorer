@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { openPath } from '@tauri-apps/plugin-opener';
 import {
@@ -20,38 +20,12 @@ import { useSettings } from '../lib/settings-provider';
 import FileItemShell from './FileItemShell';
 import FileIconComponent from './FileIcon';
 import SortIcon from './SortIcon';
+import { useFilePaneStateContext, useFilePaneActionContext } from './FilePaneContext';
+import type { SortOption, SortOrder, ViewMode } from '../types/pane';
 
 interface FileExplorerProps {
   initialFiles: FileItem[];
-  initialPath?: string;
-  isLoading?: boolean;
-  isSearchActive?: boolean;
-  errorMessage?: string | null;
-  onLoadFolder: (path: string) => Promise<FileItem[]>;
-  onPathChange?: (path: string, files: FileItem[]) => void;
-  onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
-  onDeleteItem?: (item: FileItem) => Promise<void>;
-  onRetry?: () => Promise<unknown>;
-  onSelectionChange?: (item: FileItem | null) => void;
-  onTogglePreview?: () => void;
-  paneId?: PaneId;
-  paneLabel?: string;
-  isActivePane?: boolean;
-  selectedIndex?: number;
-  viewMode?: ViewMode;
-  sortBy?: SortOption;
-  sortOrder?: SortOrder;
-  onSelectedIndexChange?: (index: number) => void;
-  onViewModeChange?: (viewMode: ViewMode) => void;
-  onSortChange?: (sortBy: SortOption, sortOrder: SortOrder) => void;
-  onActivatePane?: (paneId: PaneId) => void;
-  onCopyToInactivePane?: (item: FileItem) => void;
-  onMoveToInactivePane?: (item: FileItem) => void;
-  onCreateWorkspace?: () => void;
-  onCreateTag?: () => void;
 }
-
-import type { PaneId, SortOption, SortOrder, ViewMode } from '../types/pane';
 
 const toOpenablePath = (path: string): string => {
   if (!/^[a-zA-Z]:\\/.test(path)) {
@@ -61,64 +35,61 @@ const toOpenablePath = (path: string): string => {
   return path.replace(/\\/g, '/');
 };
 
+const isFolder = (item: FileItem): boolean => item.isDirectory;
+
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return '-';
+
+  const date = new Date(dateString);
+  return date.toLocaleDateString(navigator.language, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatSize = (size: number, folder: boolean): string => {
+  if (folder) return '-';
+  if (size === 0) return '0 B';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
 const FileExplorer: React.FC<FileExplorerProps> = ({
   initialFiles,
-  initialPath = '/',
-  isLoading = false,
-  isSearchActive = false,
-  errorMessage = null,
-  onLoadFolder,
-  onPathChange,
-  onRenameItem,
-  onDeleteItem,
-  onRetry,
-  onSelectionChange,
-  onTogglePreview,
-  paneId = 'left',
-  paneLabel = 'File explorer',
-  isActivePane,
-  selectedIndex: selectedIndexProp,
-  viewMode: viewModeProp,
-  sortBy: sortByProp,
-  sortOrder: sortOrderProp,
-  onSelectedIndexChange,
-  onViewModeChange,
-  onSortChange,
-  onActivatePane,
-  onCopyToInactivePane,
-  onMoveToInactivePane,
-  onCreateWorkspace,
-  onCreateTag,
 }) => {
-  const currentPath = initialPath;
-  const files = initialFiles;
-  const [internalSelectedIndex, setInternalSelectedIndex] = useState<number>(0);
+  const stateCtx = useFilePaneStateContext();
+  const actionCtx = useFilePaneActionContext();
+
+  const currentPath = stateCtx.currentPath ?? '/';
+  const selectedIndex = stateCtx.selectedIndex ?? 0;
+  const viewMode = stateCtx.viewMode ?? 'list';
+  const sortBy = stateCtx.sortBy ?? 'name';
+  const sortOrder = stateCtx.sortOrder ?? 'asc';
+  const paneId = stateCtx.paneId ?? 'left';
+  const paneLabel = stateCtx.paneLabel ?? 'File explorer';
+
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newFileName, setNewFileName] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
 
-  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('list');
-
-  const [internalSortBy, setInternalSortBy] = useState<SortOption>('name');
-  const [internalSortOrder, setInternalSortOrder] = useState<SortOrder>('asc');
-
-  const active = isActivePane ?? true;
-  const selectedIndex = selectedIndexProp ?? internalSelectedIndex;
-  const viewMode = viewModeProp ?? internalViewMode;
-  const sortBy = sortByProp ?? internalSortBy;
-  const sortOrder = sortOrderProp ?? internalSortOrder;
+  const active = stateCtx.isActivePane;
 
   const { itemsPerPage } = useSettings();
   const [currentPage, setCurrentPage] = useState(1);
 
   const sortedFiles = useMemo(() => {
-    if (isSearchActive) {
-      return files;
+    if (stateCtx.isSearchActive) {
+      return [...initialFiles];
     }
 
-    return [...files].sort((a, b) => {
+    return [...initialFiles].sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) {
         return a.isDirectory ? -1 : 1;
       }
@@ -146,7 +117,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [files, isSearchActive, sortBy, sortOrder]);
+  }, [initialFiles, stateCtx.isSearchActive, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -154,26 +125,26 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     () => sortedFiles.slice(startIndex, startIndex + itemsPerPage),
     [itemsPerPage, sortedFiles, startIndex],
   );
-  const isEmpty = !isLoading && !errorMessage && sortedFiles.length === 0;
+  const isEmpty = !stateCtx.isLoading && !stateCtx.errorMessage && sortedFiles.length === 0;
 
-  const onSelectionChangeRef = React.useRef(onSelectionChange);
-  onSelectionChangeRef.current = onSelectionChange;
+  const onSelectionChangeRef = useRef(actionCtx.onSelectionChange);
+  onSelectionChangeRef.current = actionCtx.onSelectionChange;
 
-  React.useEffect(() => {
+  useEffect(() => {
     onSelectionChangeRef.current?.(visibleFiles[selectedIndex] ?? null);
   }, [selectedIndex, visibleFiles]);
 
-  const isFolder = (item: FileItem): boolean => item.isDirectory;
-
   const navigateToPath = useCallback(async (path: string) => {
     try {
-      const nextFiles = await onLoadFolder(path);
-      onPathChange?.(path, nextFiles);
+      const nextFiles = await actionCtx.onLoadFolder(path);
+      actionCtx.onPathChange?.(path, nextFiles);
     } catch (error) {
-      console.error('Failed to load folder:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to load folder:', error);
+      }
       toast.error('Failed to load folder');
     }
-  }, [onLoadFolder, onPathChange]);
+  }, [actionCtx.onLoadFolder, actionCtx.onPathChange]);
 
   const openItem = useCallback(async (item: FileItem) => {
     if (isFolder(item)) {
@@ -184,7 +155,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     try {
       await openPath(toOpenablePath(item.path));
     } catch (error) {
-      console.error('Failed to open file:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to open file:', error);
+      }
       toast.error('Failed to open file');
     }
   }, [navigateToPath]);
@@ -200,59 +173,45 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     setDeleteDialogOpen(true);
   }, []);
 
-  const setSelectedIndex = (nextIndex: number | ((currentIndex: number) => number)) => {
-    const next = typeof nextIndex === 'function' ? nextIndex(selectedIndex) : nextIndex;
+  const setSelectedIndex = useCallback((nextIndex: number | ((i: number) => number)) => {
+    const current = stateCtx.selectedIndex ?? 0;
+    const next = typeof nextIndex === 'function' ? nextIndex(current) : nextIndex;
 
-    if (next === selectedIndex) {
+    if (next === current) {
       return;
     }
 
-    if (selectedIndexProp === undefined) {
-      setInternalSelectedIndex(next);
-    }
+    actionCtx.onSelectedIndexChange?.(next);
+  }, [stateCtx.selectedIndex, actionCtx.onSelectedIndexChange]);
 
-    onSelectedIndexChange?.(next);
-  };
-
-  const setViewMode = (nextViewMode: ViewMode) => {
+  const setViewMode = useCallback((nextViewMode: ViewMode) => {
     if (nextViewMode === viewMode) {
       return;
     }
 
-    if (viewModeProp === undefined) {
-      setInternalViewMode(nextViewMode);
-    }
+    actionCtx.onViewModeChange?.(nextViewMode);
+  }, [viewMode, actionCtx.onViewModeChange]);
 
-    onViewModeChange?.(nextViewMode);
-  };
-
-  const setSort = (nextSortBy: SortOption, nextSortOrder: SortOrder) => {
+  const setSort = useCallback((nextSortBy: SortOption, nextSortOrder: SortOrder) => {
     if (nextSortBy === sortBy && nextSortOrder === sortOrder) {
       return;
     }
 
-    if (sortByProp === undefined) {
-      setInternalSortBy(nextSortBy);
-    }
-    if (sortOrderProp === undefined) {
-      setInternalSortOrder(nextSortOrder);
-    }
-
-    onSortChange?.(nextSortBy, nextSortOrder);
-  };
+    actionCtx.onSortChange?.(nextSortBy, nextSortOrder);
+  }, [sortBy, sortOrder, actionCtx.onSortChange]);
 
   const activatePane = useCallback(() => {
-    onActivatePane?.(paneId);
-  }, [onActivatePane, paneId]);
+    actionCtx.onActivatePane?.(paneId);
+  }, [actionCtx.onActivatePane, stateCtx.paneId]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
     setSelectedIndex(0);
   }, [initialFiles, currentPath, sortBy, sortOrder]);
 
   const handleSelect = useCallback((index: number) => {
     setSelectedIndex(index);
-  }, []);
+  }, [setSelectedIndex]);
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,125 +223,102 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     }
 
     try {
-      if (onRenameItem) {
-        await onRenameItem(fileToRename, newFileName.trim());
+      if (actionCtx.onRenameItem) {
+        await actionCtx.onRenameItem(fileToRename, newFileName.trim());
       }
       setRenameDialogOpen(false);
       setFileToRename(null);
     } catch (error) {
-      console.error('Failed to rename item:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to rename item:', error);
+      }
       toast.error('Failed to rename item');
     }
   };
 
   const handleDeleteConfirm = async () => {
-    if (!fileToDelete || !onDeleteItem) return;
+    if (!fileToDelete || !actionCtx.onDeleteItem) return;
 
     try {
-      await onDeleteItem(fileToDelete);
+      await actionCtx.onDeleteItem(fileToDelete);
       setDeleteDialogOpen(false);
       setFileToDelete(null);
     } catch (error) {
-      console.error('Failed to delete item:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to delete item:', error);
+      }
       toast.error('Failed to delete item');
     }
   };
 
-  const selectedIndexRef = React.useRef(selectedIndex);
+  const selectedIndexRef = useRef(selectedIndex);
   selectedIndexRef.current = selectedIndex;
 
-  const visibleFilesRef = React.useRef(visibleFiles);
+  const visibleFilesRef = useRef(visibleFiles);
   visibleFilesRef.current = visibleFiles;
 
-  const currentPathRef = React.useRef(currentPath);
+  const currentPathRef = useRef(currentPath);
   currentPathRef.current = currentPath;
 
-  const setSelectedIndexRef = React.useRef(setSelectedIndex);
+  const setSelectedIndexRef = useRef(setSelectedIndex);
   setSelectedIndexRef.current = setSelectedIndex;
 
-  const openItemRef = React.useRef(openItem);
+  const openItemRef = useRef(openItem);
   openItemRef.current = openItem;
 
-  const navigateToPathRef = React.useRef(navigateToPath);
+  const navigateToPathRef = useRef(navigateToPath);
   navigateToPathRef.current = navigateToPath;
 
-  const onTogglePreviewRef = React.useRef(onTogglePreview);
-  onTogglePreviewRef.current = onTogglePreview;
+  const onTogglePreviewRef = useRef(actionCtx.onTogglePreview);
+  onTogglePreviewRef.current = actionCtx.onTogglePreview;
 
-  React.useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      if (!active) return;
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (active === false) return;
 
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
-        return;
+    if (
+      document.activeElement?.tagName === 'INPUT' ||
+      document.activeElement?.tagName === 'TEXTAREA'
+    ) {
+      return;
+    }
+
+    const currentVisibleFiles = visibleFilesRef.current;
+    const currentSelectedIndex = selectedIndexRef.current;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (currentVisibleFiles.length > 0) {
+        setSelectedIndexRef.current((prev) => Math.min(prev + 1, currentVisibleFiles.length - 1));
       }
-
-      const currentVisibleFiles = visibleFilesRef.current;
-      const currentSelectedIndex = selectedIndexRef.current;
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (currentVisibleFiles.length > 0) {
-          setSelectedIndexRef.current((prev) => Math.min(prev + 1, currentVisibleFiles.length - 1));
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (currentVisibleFiles.length > 0) {
-          setSelectedIndexRef.current((prev) => Math.max(prev - 1, 0));
-        }
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (currentVisibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
-          const selectedItem = currentVisibleFiles[currentSelectedIndex];
-          if (selectedItem) {
-            await openItemRef.current(selectedItem);
-          }
-        }
-      } else if (e.key === 'Backspace') {
-        e.preventDefault();
-        const parentPath = getParentPath(currentPathRef.current);
-        if (parentPath !== '/' && parentPath !== currentPathRef.current) {
-          await navigateToPathRef.current(parentPath);
-        }
-      } else if (e.key === ' ') {
-        if (currentVisibleFiles.length > 0) {
-          e.preventDefault();
-          onTogglePreviewRef.current?.();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (currentVisibleFiles.length > 0) {
+        setSelectedIndexRef.current((prev) => Math.max(prev - 1, 0));
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentVisibleFiles.length > 0 && document.activeElement?.tagName !== 'BUTTON') {
+        const selectedItem = currentVisibleFiles[currentSelectedIndex];
+        if (selectedItem) {
+          void openItemRef.current(selectedItem);
         }
       }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      const parentPath = getParentPath(currentPathRef.current);
+      if (parentPath !== '/' && parentPath !== currentPathRef.current) {
+        void navigateToPathRef.current(parentPath);
+      }
+    } else if (e.key === ' ') {
+      if (currentVisibleFiles.length > 0) {
+        e.preventDefault();
+        onTogglePreviewRef.current?.();
+      }
+    }
   }, [active]);
 
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return '-';
-
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatSize = (size: number, folder: boolean): string => {
-    if (folder) return '-';
-    if (size === 0) return '0 B';
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  };
-
-  const handleSort = (option: SortOption) => {
-    if (isSearchActive) {
+  const handleSort = useCallback((option: SortOption) => {
+    if (stateCtx.isSearchActive) {
       return;
     }
 
@@ -391,9 +327,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     } else {
       setSort(option, 'asc');
     }
-  };
+  }, [stateCtx.isSearchActive, sortBy, sortOrder, setSort]);
 
-  const sortHeaderClassName = isSearchActive
+  const sortHeaderClassName = stateCtx.isSearchActive
     ? 'flex items-center text-muted-foreground/55'
     : 'flex items-center cursor-pointer rounded-sm transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25';
 
@@ -406,6 +342,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       aria-label={paneLabel}
       onFocus={activatePane}
       onClick={activatePane}
+      onKeyDown={handleKeyDown}
     >
       <div className="sticky top-0 z-10 border-b border-border bg-card">
         <BreadcrumbPath currentPath={currentPath} onNavigate={navigateToPath}>
@@ -416,6 +353,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 viewMode === 'list' ? 'bg-primary text-primary-foreground' : ''
               }`}
               title="View as List"
+              aria-label="View as List"
+              aria-pressed={viewMode === 'list'}
             >
               <List className="h-4 w-4" />
             </button>
@@ -425,6 +364,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 viewMode === 'grid' ? 'bg-primary text-primary-foreground' : ''
               }`}
               title="View as Grid"
+              aria-label="View as Grid"
+              aria-pressed={viewMode === 'grid'}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -434,22 +375,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         {viewMode === 'list' && (
           <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground select-none">
             <span className={sortHeaderClassName} onClick={() => handleSort('name')}>
-              Name <SortIcon option="name" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
+              Name <SortIcon option="name" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={stateCtx.isSearchActive ?? false} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('modified')}>
-              Modified <SortIcon option="modified" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
+              Modified <SortIcon option="modified" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={stateCtx.isSearchActive ?? false} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('type')}>
-              Type <SortIcon option="type" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
+              Type <SortIcon option="type" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={stateCtx.isSearchActive ?? false} />
             </span>
             <span className={sortHeaderClassName} onClick={() => handleSort('size')}>
-              Size <SortIcon option="size" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={isSearchActive} />
+              Size <SortIcon option="size" sortBy={sortBy} sortOrder={sortOrder} isSearchActive={stateCtx.isSearchActive ?? false} />
             </span>
           </div>
         )}
       </div>
 
-      {isLoading && (
+      {stateCtx.isLoading && (
         <div className="dot-grid-subtle flex min-h-72 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border-visible bg-card text-primary">
             <LoaderCircle className="h-6 w-6 animate-spin" strokeWidth={2.5} aria-hidden="true" />
@@ -461,20 +402,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      {errorMessage && !isLoading && (
+      {stateCtx.errorMessage && !stateCtx.isLoading && (
         <div className="flex min-h-72 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-destructive text-destructive">
             <AlertCircle className="h-6 w-6" strokeWidth={2.5} aria-hidden="true" />
           </div>
           <div className="space-y-1.5">
             <p className="text-[15px] font-semibold text-foreground tracking-tight">Ocurrió un problema</p>
-            <p className="text-[13px] text-muted-foreground">{errorMessage}</p>
+            <p className="text-[13px] text-muted-foreground">{stateCtx.errorMessage}</p>
           </div>
-          {onRetry && (
+          {actionCtx.onRetry && (
             <button
               type="button"
               onClick={() => {
-                void onRetry();
+                void actionCtx.onRetry?.();
               }}
               className="inline-flex items-center gap-2 rounded-full border border-input bg-transparent px-5 py-2.5 font-mono text-[12px] font-bold uppercase tracking-[0.08em] transition-colors hover:border-ring hover:text-foreground"
             >
@@ -497,7 +438,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         </div>
       )}
 
-      {!isLoading && !errorMessage && (
+      {!stateCtx.isLoading && !stateCtx.errorMessage && (
         viewMode === 'list' ? (
           <div>
             {visibleFiles.map((file, index) => {
@@ -511,13 +452,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   file={file}
                   index={index}
                   onOpen={openItem}
-                  onRename={onRenameItem ? openRenameDialog : undefined}
-                  onDelete={onDeleteItem ? openDeleteDialog : undefined}
+                  onRename={actionCtx.onRenameItem ? openRenameDialog : undefined}
+                  onDelete={actionCtx.onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
-                  onCopyToInactivePane={onCopyToInactivePane}
-                  onMoveToInactivePane={onMoveToInactivePane}
-                  onCreateWorkspace={onCreateWorkspace}
-                  onCreateTag={onCreateTag}
+                  onCopyToInactivePane={actionCtx.onCopyToInactivePane}
+                  onMoveToInactivePane={actionCtx.onMoveToInactivePane}
+                  onCreateWorkspace={actionCtx.onCreateWorkspace}
+                  onCreateTag={actionCtx.onCreateTag}
                   className={`group/file-row grid grid-cols-[1.6fr_1fr_0.8fr_0.6fr] px-5 py-3.5 border-b border-border items-center cursor-pointer transition-colors duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-l-2 border-l-accent bg-muted text-foreground hover:bg-muted'
@@ -567,13 +508,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                   file={file}
                   index={index}
                   onOpen={openItem}
-                  onRename={onRenameItem ? openRenameDialog : undefined}
-                  onDelete={onDeleteItem ? openDeleteDialog : undefined}
+                  onRename={actionCtx.onRenameItem ? openRenameDialog : undefined}
+                  onDelete={actionCtx.onDeleteItem ? openDeleteDialog : undefined}
                   onSelect={handleSelect}
-                  onCopyToInactivePane={onCopyToInactivePane}
-                  onMoveToInactivePane={onMoveToInactivePane}
-                  onCreateWorkspace={onCreateWorkspace}
-                  onCreateTag={onCreateTag}
+                  onCopyToInactivePane={actionCtx.onCopyToInactivePane}
+                  onMoveToInactivePane={actionCtx.onMoveToInactivePane}
+                  onCreateWorkspace={actionCtx.onCreateWorkspace}
+                  onCreateTag={actionCtx.onCreateTag}
                   className={`group/file-tile flex flex-col items-center justify-center rounded-xl border p-4 cursor-pointer transition-[background-color,border-color] duration-200 focus-within:bg-muted hover:bg-muted ${
                     isSelected
                       ? 'border-t-2 border-t-accent bg-muted border-foreground hover:bg-muted hover:border-foreground'
@@ -603,24 +544,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         )
       )}
 
-      {currentPath !== '/' && !isLoading && !errorMessage && !isEmpty && (
-        <div className="px-4 py-3 border-t border-border bg-muted/20 sticky bottom-0 z-10 hidden">
-          <button
-            onClick={async () => {
-              const parentPath = getParentPath(currentPath);
-              await navigateToPath(parentPath);
-            }}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-background border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-          >
-            Back
-          </button>
-        </div>
-      )}
 
-      {totalPages > 1 && !isLoading && !errorMessage && (
+
+      {totalPages > 1 && !stateCtx.isLoading && !stateCtx.errorMessage && (
         <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-border bg-card px-4 py-3">
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, files.length)} of {files.length} items
+            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedFiles.length)} of {sortedFiles.length} items
           </span>
           <div className="flex items-center gap-4 text-[13px]">
             <button
