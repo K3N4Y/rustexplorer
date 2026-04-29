@@ -8,6 +8,24 @@ let togglePreviewHandler: (() => void) | undefined;
 let requestAnimationFrameSpy: { mockRestore: () => void };
 let cancelAnimationFrameSpy: { mockRestore: () => void };
 
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockImplementation(async (command: string) => {
+    if (command === "get_app_data") {
+      return {
+        workspaces: [],
+        tags: [],
+        path_tags: {},
+      };
+    }
+    return null;
+  }),
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+  homeDir: vi.fn().mockResolvedValue("C:\\Users\\kenay\\OneDrive\\Desktop"),
+  desktopDir: vi.fn().mockResolvedValue("C:\\Users\\kenay\\OneDrive\\Desktop"),
+}));
+
 vi.mock("./hooks/use-file-navigation", () => ({
   useFileNavigation: () => ({
     canGoBack: false,
@@ -63,19 +81,72 @@ vi.mock("./components/settings-dialog", () => ({
   SettingsDialog: () => null,
 }));
 
-vi.mock("./components/FileExplorer", () => ({
-  default: ({
-    onSelectionChange,
-    onTogglePreview,
-  }: {
-    onSelectionChange: (item: FileItem | null) => void;
-    onTogglePreview: () => void;
-  }) => {
-    selectionHandler = onSelectionChange;
-    togglePreviewHandler = onTogglePreview;
-    return <div>Explorer</div>;
-  },
-}));
+vi.mock("./components/FileExplorer", async () => {
+  const { useFilePaneContext } = await vi.importActual<typeof import("./components/FilePaneContext")>(
+    "./components/FilePaneContext",
+  );
+
+  return {
+    default: () => {
+      const { onSelectionChange, onTogglePreview } = useFilePaneContext();
+      selectionHandler = onSelectionChange;
+      togglePreviewHandler = onTogglePreview;
+      return <div>Explorer</div>;
+    },
+  };
+});
+
+vi.mock("./components/preview/PreviewPanel", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+
+  return {
+    default: ({
+      open,
+      selectedName,
+      payload,
+      onContentReadyChange,
+    }: {
+      open: boolean;
+      selectedName?: string;
+      payload: { content?: string } | null;
+      onContentReadyChange: (ready: boolean) => void;
+    }) => {
+      const [contentVisible, setContentVisible] = React.useState(false);
+      const [shouldRender, setShouldRender] = React.useState(open);
+
+      React.useEffect(() => {
+        if (open) {
+          setShouldRender(true);
+          setContentVisible(false);
+        }
+      }, [open]);
+
+      if (!shouldRender) {
+        return null;
+      }
+
+      return (
+        <aside aria-label="Shared preview" onTransitionEnd={() => {
+          if (open) {
+            setContentVisible(true);
+            onContentReadyChange(true);
+          } else {
+            setShouldRender(false);
+          }
+        }}>
+          <div>Preview</div>
+          {selectedName ? <div>{selectedName}</div> : null}
+          {contentVisible && payload?.content ? <div>{payload.content}</div> : null}
+        </aside>
+      );
+    },
+  };
+});
+
+async function renderApp() {
+  render(<App />);
+  await screen.findByRole("button", { name: "Toggle dual-pane split view" });
+}
 
 function finishPreviewOpenAnimation() {
   act(() => {
@@ -103,22 +174,22 @@ describe("App preview panel", () => {
     cancelAnimationFrameSpy.mockRestore();
   });
 
-  it("starts with the file tree and preview panel closed", () => {
-    render(<App />);
+  it("starts with the file tree and preview panel closed", async () => {
+    await renderApp();
 
     expect(document.querySelector('[data-slot="sidebar"]')).toHaveAttribute("data-state", "collapsed");
     expect(screen.queryByText("Preview")).not.toBeInTheDocument();
   });
 
-  it("keeps the app frame fixed while the file list owns vertical scrolling", () => {
-    render(<App />);
+  it("keeps the app frame fixed while the file list owns vertical scrolling", async () => {
+    await renderApp();
 
     expect(screen.getByTestId("app-content-frame")).toHaveClass("overflow-hidden");
     expect(screen.getByTestId("file-list-scroll-region")).toHaveClass("overflow-auto");
   });
 
-  it("keeps the preview closed for the initial file selection", () => {
-    render(<App />);
+  it("keeps the preview closed for the initial file selection", async () => {
+    await renderApp();
 
     act(() => {
       selectionHandler?.({
@@ -133,8 +204,8 @@ describe("App preview panel", () => {
     expect(screen.queryByText("Preview")).not.toBeInTheDocument();
   });
 
-  it("keeps the preview closed when a different file is selected before pressing Space", () => {
-    render(<App />);
+  it("keeps the preview closed when a different file is selected before pressing Space", async () => {
+    await renderApp();
 
     act(() => {
       selectionHandler?.({
@@ -159,8 +230,8 @@ describe("App preview panel", () => {
     expect(screen.queryByText("Preview")).not.toBeInTheDocument();
   });
 
-  it("toggles the preview panel open and closed with Space for the selected file", () => {
-    render(<App />);
+  it("toggles the preview panel open and closed with Space for the selected file", async () => {
+    await renderApp();
     const selectedFile = {
       name: "report.pdf",
       path: "C:\\Users\\kenay\\OneDrive\\Desktop\\report.pdf",
@@ -208,8 +279,8 @@ describe("App preview panel", () => {
     expect(screen.queryByText("Preview")).not.toBeInTheDocument();
   });
 
-  it("keeps the preview open and updates it when another file is selected after Space opened it", () => {
-    render(<App />);
+  it("keeps the preview open and updates it when another file is selected after Space opened it", async () => {
+    await renderApp();
     const selectedFile = {
       name: "report.pdf",
       path: "C:\\Users\\kenay\\OneDrive\\Desktop\\report.pdf",

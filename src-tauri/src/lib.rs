@@ -26,7 +26,7 @@ const CODE_EXTS: &[&str] = &[
     "java", "cs", "rb", "php", "swift", "kt", "scala", "sh", "bash", "ps1", "sql",
     "html", "htm", "css", "scss", "sass", "xml", "yaml", "yml", "toml", "dockerfile",
 ];
-const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
+pub(crate) const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
     ".cache",
     ".git",
     ".mypy_cache",
@@ -48,13 +48,13 @@ const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
 ];
 
 #[derive(Serialize, Clone)]
-struct SearchResultChunkEvent {
+pub(crate) struct SearchResultChunkEvent {
     request_id: String,
     items: Vec<FileDetailDTO>,
 }
 
 #[derive(Serialize, Clone)]
-struct SearchDoneEvent {
+pub(crate) struct SearchDoneEvent {
     request_id: String,
     total: usize,
 }
@@ -763,7 +763,7 @@ fn read_one_level_files(path: &Path) -> std::io::Result<Vec<FileDetailDTO>> {
     Ok(files)
 }
 
-fn should_search_entry(entry: &ignore::DirEntry) -> bool {
+pub(crate) fn should_search_entry(entry: &ignore::DirEntry) -> bool {
     if !entry
         .file_type()
         .is_some_and(|file_type| file_type.is_dir())
