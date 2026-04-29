@@ -313,11 +313,11 @@ impl SearchCancellationToken {
     }
 
     fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
+        self.cancelled.store(true, Ordering::Relaxed);
     }
 
     fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.cancelled.load(Ordering::Relaxed)
     }
 }
 
