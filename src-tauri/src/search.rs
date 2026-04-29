@@ -1,3 +1,4 @@
+use crate::{DEFAULT_EXCLUDED_SEARCH_DIRS, SearchDoneEvent, SearchResultChunkEvent, should_search_entry};
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
@@ -335,49 +336,6 @@ fn should_emit_done(token: &SearchCancellationToken) -> bool {
     !token.is_cancelled()
 }
 
-const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
-    ".cache",
-    ".git",
-    ".mypy_cache",
-    ".next",
-    ".nuxt",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".turbo",
-    ".venv",
-    ".vite",
-    "__pycache__",
-    "build",
-    "coverage",
-    "dist",
-    "env",
-    "node_modules",
-    "target",
-    "venv",
-];
-
-#[derive(Serialize, Clone)]
-struct SearchResultSnapshotEvent {
-    request_id: String,
-    items: Vec<FileDetailDTO>,
-}
-
-#[derive(Serialize, Clone)]
-struct SearchDoneEvent {
-    request_id: String,
-    total: usize,
-}
-
-fn should_search_entry(entry: &ignore::DirEntry) -> bool {
-    if !entry.file_type().is_some_and(|file_type| file_type.is_dir()) {
-        return true;
-    }
-
-    let name = entry.file_name().to_string_lossy();
-    !DEFAULT_EXCLUDED_SEARCH_DIRS
-        .iter()
-        .any(|excluded| name.eq_ignore_ascii_case(excluded))
-}
 
 fn modified_to_iso(metadata: &std::fs::Metadata) -> Option<String> {
     metadata.modified().ok().map(|time| {
@@ -443,7 +401,7 @@ pub async fn search_files_fuzzy(
 
                 let _ = emitter_window.emit(
                     "search-results-chunk",
-                    SearchResultSnapshotEvent {
+                    SearchResultChunkEvent {
                         request_id: emitter_request_id.clone(),
                         items: snapshot.items,
                     },
