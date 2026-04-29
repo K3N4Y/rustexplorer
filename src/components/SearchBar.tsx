@@ -13,6 +13,10 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 
+const DEFAULT_SEARCH_LIMIT = 200;
+const SEARCH_DEBOUNCE_MS = 100;
+const RESULT_FLUSH_MS = 80;
+
 interface InputGroupDemoProps {
   currentPath: string;
   onSearchResults: (files: FileItem[]) => void;
@@ -80,7 +84,7 @@ export function InputGroupDemo({
           isDirectory: item.is_dir,
         }));
 
-        streamedFilesRef.current = streamedFilesRef.current.concat(mappedChunk);
+        streamedFilesRef.current = mappedChunk;
 
         if (flushTimerRef.current === null) {
           flushTimerRef.current = window.setTimeout(() => {
@@ -92,7 +96,7 @@ export function InputGroupDemo({
 
             setResultsCount(streamedFilesRef.current.length);
             onSearchResultsRef.current([...streamedFilesRef.current]);
-          }, 80);
+          }, RESULT_FLUSH_MS);
         }
       });
 
@@ -165,11 +169,12 @@ export function InputGroupDemo({
     onSearchResultsRef.current([]);
 
     try {
-      await invoke("search_with_ignore", {
-        pattern: searchQuery,
+      await invoke("search_files_fuzzy", {
+        query: searchQuery,
         path: currentPath,
         threads: searchThreads,
         requestId,
+        limit: DEFAULT_SEARCH_LIMIT,
       });
     } catch (error) {
       console.error("Search failed:", error);
@@ -193,16 +198,20 @@ export function InputGroupDemo({
         window.clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
       }
+      const hadActiveRequest = activeRequestRef.current !== null;
       activeRequestRef.current = null;
       streamedFilesRef.current = [];
       resetSearchUi();
+      if (hadActiveRequest) {
+        void invoke("cancel_search");
+      }
       void onClearSearchRef.current();
       return;
     }
 
     debounceTimerRef.current = window.setTimeout(() => {
       void performSearchRef.current(search);
-    }, 300);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
       if (debounceTimerRef.current !== null) {
@@ -221,6 +230,9 @@ export function InputGroupDemo({
     if (flushTimerRef.current !== null) {
       window.clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
+    }
+    if (activeRequestRef.current !== null) {
+      void invoke("cancel_search");
     }
     activeRequestRef.current = null;
     streamedFilesRef.current = [];
