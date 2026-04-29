@@ -5,6 +5,7 @@ mod search;
 
 use crate::app_data::{AppData, AppDataManager, generate_id, is_valid_hex};
 use crate::models::file_detail_dto::FileDetailDTO;
+use crate::search::{cancel_search, search_files_fuzzy};
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
 use serde::Serialize;
@@ -139,6 +140,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            cancel_search,
+            search_files_fuzzy,
             search_with_ignore,
             get_files,
             rename_file,
@@ -357,7 +360,7 @@ fn get_blocked_system_roots() -> &'static Vec<PathBuf> {
     })
 }
 
-fn validate_path_scope(path_str: &str) -> Result<PathBuf, String> {
+pub(crate) fn validate_path_scope(path_str: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(path_str);
     let canonical = if let Ok(c) = path.canonicalize() {
         c

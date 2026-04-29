@@ -1,10 +1,13 @@
 use crate::models::file_detail_dto::FileDetailDTO;
+use chrono::{DateTime, Utc};
+use ignore::WalkBuilder;
+use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex, OnceLock,
-};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 use std::time::{Duration, Instant};
+use tauri::{Emitter, Window};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct FuzzyMatch {
@@ -310,11 +313,11 @@ impl SearchCancellationToken {
     }
 
     fn cancel(&self) {
-        self.cancelled.store(true, Ordering::Relaxed);
+        self.cancelled.store(true, Ordering::SeqCst);
     }
 
     fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::Relaxed)
+        self.cancelled.load(Ordering::SeqCst)
     }
 }
 
@@ -356,6 +359,192 @@ fn walk_state_for_token(token: &SearchCancellationToken) -> ignore::WalkState {
 
 fn should_emit_done(token: &SearchCancellationToken) -> bool {
     !token.is_cancelled()
+}
+
+const DEFAULT_EXCLUDED_SEARCH_DIRS: &[&str] = &[
+    ".cache",
+    ".git",
+    ".mypy_cache",
+    ".next",
+    ".nuxt",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".turbo",
+    ".venv",
+    ".vite",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "env",
+    "node_modules",
+    "target",
+    "venv",
+];
+
+#[derive(Serialize, Clone)]
+struct SearchResultSnapshotEvent {
+    request_id: String,
+    items: Vec<FileDetailDTO>,
+}
+
+#[derive(Serialize, Clone)]
+struct SearchDoneEvent {
+    request_id: String,
+    total: usize,
+}
+
+fn should_search_entry(entry: &ignore::DirEntry) -> bool {
+    if !entry.file_type().is_some_and(|file_type| file_type.is_dir()) {
+        return true;
+    }
+
+    let name = entry.file_name().to_string_lossy();
+    !DEFAULT_EXCLUDED_SEARCH_DIRS
+        .iter()
+        .any(|excluded| name.eq_ignore_ascii_case(excluded))
+}
+
+fn modified_to_iso(metadata: &std::fs::Metadata) -> Option<String> {
+    metadata.modified().ok().map(|time| {
+        let datetime: DateTime<Utc> = time.into();
+        datetime.to_rfc3339()
+    })
+}
+
+fn scored_result_from_entry(
+    query: &str,
+    root: &Path,
+    entry: &ignore::DirEntry,
+) -> Option<ScoredSearchResult> {
+    let metadata = entry.metadata().ok()?;
+    let name = entry.file_name().to_string_lossy().to_string();
+    let relative_path = normalize_relative_path(root, entry.path());
+    let fuzzy = score_path_match(query, &name, &relative_path)?;
+
+    Some(ScoredSearchResult {
+        score: fuzzy.score,
+        depth: fuzzy.depth,
+        sort_key: fuzzy.sort_key,
+        name,
+        relative_path,
+        path: entry.path().to_path_buf(),
+        size: metadata.len(),
+        modified: modified_to_iso(&metadata),
+        is_dir: metadata.is_dir(),
+    })
+}
+
+#[tauri::command]
+pub async fn search_files_fuzzy(
+    query: String,
+    path: String,
+    threads: usize,
+    request_id: String,
+    limit: Option<usize>,
+    window: Window,
+) -> Result<(), String> {
+    let root = crate::validate_path_scope(&path)?;
+    let token = search_cancellation_registry().start_search();
+    let result_limit = limit.unwrap_or(DEFAULT_SEARCH_LIMIT).clamp(1, 1000);
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let thread_count = threads.clamp(1, 32);
+        let (tx, rx) = mpsc::channel::<SearchSnapshot>();
+        let emitter_window = window.clone();
+        let emitter_request_id = request_id.clone();
+        let emitter_token = token.clone();
+
+        let emitter_handle = thread::spawn(move || {
+            let mut last_emitted_version = 0usize;
+            for snapshot in rx {
+                if emitter_token.is_cancelled() {
+                    break;
+                }
+
+                if snapshot.version <= last_emitted_version {
+                    continue;
+                }
+                last_emitted_version = snapshot.version;
+
+                let _ = emitter_window.emit(
+                    "search-results-chunk",
+                    SearchResultSnapshotEvent {
+                        request_id: emitter_request_id.clone(),
+                        items: snapshot.items,
+                    },
+                );
+            }
+        });
+
+        let walker = WalkBuilder::new(&root)
+            .threads(thread_count)
+            .filter_entry(should_search_entry)
+            .build_parallel();
+
+        let snapshot_state = Arc::new(Mutex::new(SearchSnapshotState::new(result_limit)));
+        walker.run(|| {
+            let query = query.clone();
+            let root = root.clone();
+            let token = token.clone();
+            let tx = tx.clone();
+            let snapshot_state = snapshot_state.clone();
+
+            Box::new(move |result| {
+                if token.is_cancelled() {
+                    return walk_state_for_token(&token);
+                }
+
+                if let Ok(entry) = result {
+                    if let Some(scored) = scored_result_from_entry(&query, &root, &entry) {
+                        let snapshot = {
+                            let mut state = snapshot_state.lock().expect("search snapshot state mutex poisoned");
+                            state.push(scored)
+                        };
+
+                        if let Some(snapshot) = snapshot {
+                            let _ = tx.send(snapshot);
+                        }
+                    }
+                }
+
+                ignore::WalkState::Continue
+            })
+        });
+
+        let final_snapshot = {
+            let mut state = snapshot_state.lock().expect("search snapshot state mutex poisoned");
+            state.snapshot()
+        };
+        let final_total = final_snapshot.total;
+        let _ = tx.send(final_snapshot);
+        drop(tx);
+
+        emitter_handle
+            .join()
+            .map_err(|_| "search emitter thread failed".to_string())?;
+
+        if should_emit_done(&token) {
+            let _ = window.emit(
+                "search-done",
+                SearchDoneEvent {
+                    request_id,
+                    total: final_total,
+                },
+            );
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|err| err.to_string())??;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn cancel_search() {
+    search_cancellation_registry().cancel_active();
 }
 
 #[cfg(test)]
@@ -545,5 +734,52 @@ mod tests {
         let second = search_cancellation_registry();
 
         assert!(std::ptr::eq(first, second));
+    }
+
+    #[test]
+    fn fuzzy_search_entry_filter_skips_default_excluded_directories() {
+        let temp_dir = create_temp_dir("rustexplorer-fuzzy-exclude");
+        let node_modules_dir = temp_dir.path().join("node_modules");
+        let src_dir = temp_dir.path().join("src");
+        std::fs::create_dir(&node_modules_dir).unwrap();
+        std::fs::create_dir(&src_dir).unwrap();
+
+        let entries: Vec<_> = ignore::WalkBuilder::new(temp_dir.path())
+            .max_depth(Some(1))
+            .build()
+            .filter_map(Result::ok)
+            .collect();
+        let node_modules_entry = entries
+            .iter()
+            .find(|entry| entry.path() == node_modules_dir)
+            .unwrap();
+        let src_entry = entries.iter().find(|entry| entry.path() == src_dir).unwrap();
+
+        assert!(!should_search_entry(node_modules_entry));
+        assert!(should_search_entry(src_entry));
+    }
+
+    #[test]
+    fn scored_result_from_entry_matches_relative_path() {
+        let temp_dir = create_temp_dir("rustexplorer-fuzzy-entry");
+        let src_dir = temp_dir.path().join("src");
+        let file_path = src_dir.join("App.css");
+        std::fs::create_dir(&src_dir).unwrap();
+        std::fs::write(&file_path, b"body {}").unwrap();
+
+        let entry = ignore::WalkBuilder::new(temp_dir.path())
+            .build()
+            .filter_map(Result::ok)
+            .find(|entry| entry.path() == file_path)
+            .unwrap();
+
+        let scored = scored_result_from_entry("srcappcs", temp_dir.path(), &entry).unwrap();
+
+        assert_eq!(scored.name, "App.css");
+        assert_eq!(scored.relative_path, "src/App.css");
+    }
+
+    fn create_temp_dir(prefix: &str) -> tempfile::TempDir {
+        tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
     }
 }
