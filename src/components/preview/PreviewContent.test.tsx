@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PreviewContent from "./PreviewContent";
 
@@ -12,6 +12,18 @@ vi.mock("@tauri-apps/api/core", async () => {
     convertFileSrc: (path: string) => `asset://${path}`,
   };
 });
+
+vi.mock("./renderers/MarkdownRenderer", () => ({
+  default: ({ payload }: { payload: { content: string } }) => <div>{payload.content.replace("# ", "")}</div>,
+}));
+
+vi.mock("./renderers/CodeRenderer", () => ({
+  default: ({ payload }: { payload: { language: string } }) => <div>{payload.language}</div>,
+}));
+
+vi.mock("./renderers/JsonRenderer", () => ({
+  default: () => <div>JSON Object</div>,
+}));
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -28,7 +40,7 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 describe("PreviewContent", () => {
-  it("routes text payloads", () => {
+  it("routes text payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -40,10 +52,10 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByText("hello")).toBeInTheDocument();
+    expect(await screen.findByText("hello")).toBeInTheDocument();
   });
 
-  it("routes markdown payloads", () => {
+  it("routes markdown payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -55,10 +67,10 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByText("Hello")).toBeInTheDocument();
+    expect(await screen.findByText("Hello")).toBeInTheDocument();
   });
 
-  it("routes image payloads", () => {
+  it("routes image payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -70,10 +82,10 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByAltText("Preview")).toHaveAttribute("src", "asset://C:/docs/photo.png");
+    expect(await screen.findByAltText("Preview")).toHaveAttribute("src", "asset://C:/docs/photo.png");
   });
 
-  it("routes pdf payloads", () => {
+  it("routes pdf payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -84,10 +96,10 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByLabelText("PDF preview")).toBeInTheDocument();
+    expect(await screen.findByLabelText("PDF preview")).toBeInTheDocument();
   });
 
-  it("routes audio payloads", () => {
+  it("routes audio payloads", async () => {
     const { container } = render(
       <PreviewContent
         payload={{
@@ -98,10 +110,12 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(container.querySelector("audio")).not.toBeNull();
+    await waitFor(() => {
+      expect(container.querySelector("audio")).not.toBeNull();
+    });
   });
 
-  it("routes video payloads", () => {
+  it("routes video payloads", async () => {
     const { container } = render(
       <PreviewContent
         payload={{
@@ -112,10 +126,12 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(container.querySelector("video")).not.toBeNull();
+    await waitFor(() => {
+      expect(container.querySelector("video")).not.toBeNull();
+    });
   });
 
-  it("routes directory payloads", () => {
+  it("routes directory payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -125,10 +141,10 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByText(/Directorio seleccionado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Directorio seleccionado/i)).toBeInTheDocument();
   });
 
-  it("routes binary payloads", () => {
+  it("routes binary payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -139,11 +155,11 @@ describe("PreviewContent", () => {
       />
     );
 
-    expect(screen.getByText("Tamaño: 99 bytes")).toBeInTheDocument();
-    expect(screen.getByText(/unsupported/i)).toBeInTheDocument();
+    expect(await screen.findByText("Tamaño: 99 bytes")).toBeInTheDocument();
+    expect(await screen.findByText(/unsupported/i)).toBeInTheDocument();
   });
 
-  it("routes code payloads", () => {
+  it("routes code payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -155,10 +171,10 @@ describe("PreviewContent", () => {
         }}
       />
     );
-    expect(screen.getByText("rust")).toBeInTheDocument();
+    expect(await screen.findByText("rust")).toBeInTheDocument();
   });
 
-  it("routes csv payloads", () => {
+  it("routes csv payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -170,11 +186,11 @@ describe("PreviewContent", () => {
         }}
       />
     );
-    expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(await screen.findByText("A")).toBeInTheDocument();
+    expect(await screen.findByText("1")).toBeInTheDocument();
   });
 
-  it("routes json payloads", () => {
+  it("routes json payloads", async () => {
     render(
       <PreviewContent
         payload={{
@@ -186,6 +202,6 @@ describe("PreviewContent", () => {
         }}
       />
     );
-    expect(screen.getByText("JSON Object")).toBeInTheDocument();
+    expect(await screen.findByText("JSON Object")).toBeInTheDocument();
   });
 });
