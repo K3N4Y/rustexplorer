@@ -293,6 +293,72 @@ impl SearchSnapshotState {
     }
 }
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
+
+#[derive(Debug, Clone)]
+struct SearchCancellationToken {
+    cancelled: Arc<AtomicBool>,
+}
+
+impl SearchCancellationToken {
+    fn new() -> Self {
+        Self {
+            cancelled: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Debug, Default)]
+struct SearchCancellationRegistry {
+    active: Mutex<Option<SearchCancellationToken>>,
+}
+
+impl SearchCancellationRegistry {
+    fn start_search(&self) -> SearchCancellationToken {
+        let token = SearchCancellationToken::new();
+        let mut active = self.active.lock().expect("search cancellation mutex poisoned");
+        if let Some(previous) = active.replace(token.clone()) {
+            previous.cancel();
+        }
+        token
+    }
+
+    fn cancel_active(&self) {
+        let active = self.active.lock().expect("search cancellation mutex poisoned");
+        if let Some(token) = active.as_ref() {
+            token.cancel();
+        }
+    }
+}
+
+fn search_cancellation_registry() -> &'static SearchCancellationRegistry {
+    static REGISTRY: OnceLock<SearchCancellationRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(SearchCancellationRegistry::default)
+}
+
+fn walk_state_for_token(token: &SearchCancellationToken) -> ignore::WalkState {
+    if token.is_cancelled() {
+        ignore::WalkState::Quit
+    } else {
+        ignore::WalkState::Continue
+    }
+}
+
+fn should_emit_done(token: &SearchCancellationToken) -> bool {
+    !token.is_cancelled()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -413,5 +479,51 @@ mod tests {
             modified: None,
             is_dir: false,
         }
+    }
+
+    #[test]
+    fn cancellation_registry_cancels_previous_search_when_new_search_starts() {
+        let registry = SearchCancellationRegistry::default();
+        let first = registry.start_search();
+        assert!(!first.is_cancelled());
+
+        let second = registry.start_search();
+
+        assert!(first.is_cancelled());
+        assert!(!second.is_cancelled());
+    }
+
+    #[test]
+    fn cancellation_registry_can_cancel_active_search_on_clear() {
+        let registry = SearchCancellationRegistry::default();
+        let token = registry.start_search();
+        assert!(!token.is_cancelled());
+
+        registry.cancel_active();
+
+        assert!(token.is_cancelled());
+    }
+
+    #[test]
+    fn cancelled_token_maps_to_walkstate_quit() {
+        let token = SearchCancellationToken::new();
+        token.cancel();
+
+        assert!(matches!(walk_state_for_token(&token), ignore::WalkState::Quit));
+    }
+
+    #[test]
+    fn active_token_maps_to_walkstate_continue() {
+        let token = SearchCancellationToken::new();
+
+        assert!(matches!(walk_state_for_token(&token), ignore::WalkState::Continue));
+    }
+
+    #[test]
+    fn cancelled_search_should_not_emit_done() {
+        let token = SearchCancellationToken::new();
+        token.cancel();
+
+        assert!(!should_emit_done(&token));
     }
 }
