@@ -8,6 +8,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { PreviewPayload } from '../types';
 import { PdfPageCanvas } from './PdfPageCanvas';
+import { PdfSkeleton } from '../skeletons';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -189,7 +190,7 @@ export default function PdfRenderer({ payload }: Props) {
             <p className="font-mono text-[10px] text-[var(--text-muted)]">{renderError}</p>
           </div>
         ) : loading ? (
-          <p className="font-mono text-xs text-[var(--text-muted)]">Loading PDF preview...</p>
+          <PdfSkeleton />
         ) : (
           <div ref={measureContainerRef} className="w-full max-w-full">
             <div

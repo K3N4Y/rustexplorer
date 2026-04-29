@@ -13,19 +13,26 @@ vi.mock("@tauri-apps/api/core", async () => {
   };
 });
 
+const mockFileItem = {
+  name: "photo.png",
+  path: "C:\\docs\\photo.png",
+  size: 1234,
+  modified: "2024-01-15T10:30:00Z",
+  isDirectory: false,
+};
+
 describe("PreviewPanel", () => {
   it("provides a full-height content area for image previews", async () => {
     render(
       <PreviewPanel
         open
-        selectedName="photo.png"
+        selectedItem={mockFileItem}
         payload={{
           type: "image",
           path: "C:\\docs\\photo.png",
           mimeType: "image/png",
           sizeBytes: 12,
         }}
-        isLoading={false}
         error={null}
       />
     );
@@ -44,9 +51,8 @@ describe("PreviewPanel", () => {
     render(
       <PreviewPanel
         open
-        selectedName="photo.png"
+        selectedItem={mockFileItem}
         payload={null}
-        isLoading={false}
         error={null}
       />
     );
@@ -65,9 +71,8 @@ describe("PreviewPanel", () => {
     const { container, rerender } = render(
       <PreviewPanel
         open
-        selectedName="photo.png"
+        selectedItem={mockFileItem}
         payload={null}
-        isLoading={false}
         error={null}
       />
     );
@@ -78,9 +83,8 @@ describe("PreviewPanel", () => {
     rerender(
       <PreviewPanel
         open={false}
-        selectedName="photo.png"
+        selectedItem={mockFileItem}
         payload={null}
-        isLoading={false}
         error={null}
       />
     );
@@ -108,9 +112,8 @@ describe("PreviewPanel", () => {
     const { container, rerender } = render(
       <PreviewPanel
         open={false}
-        selectedName="photo.png"
+        selectedItem={null}
         payload={null}
-        isLoading={false}
         error={null}
       />
     );
@@ -120,16 +123,15 @@ describe("PreviewPanel", () => {
     rerender(
       <PreviewPanel
         open
-        selectedName="photo.png"
+        selectedItem={null}
         payload={null}
-        isLoading={false}
         error={null}
       />
     );
 
     const panel = container.querySelector("aside");
     expect(panel).toHaveStyle({ width: "0px", minWidth: "0" });
-    expect(screen.queryByText("[SELECT FILE] SPACE TO PREVIEW")).not.toBeInTheDocument();
+    expect(screen.getByText("[SELECT FILE] SPACE TO PREVIEW")).toBeInTheDocument();
 
     act(() => {
       frames.shift()?.(0);
@@ -142,7 +144,7 @@ describe("PreviewPanel", () => {
     });
 
     expect(panel).toHaveStyle({ width: "420px", minWidth: "0" });
-    expect(screen.queryByText("[SELECT FILE] SPACE TO PREVIEW")).not.toBeInTheDocument();
+    expect(screen.getByText("[SELECT FILE] SPACE TO PREVIEW")).toBeInTheDocument();
 
     fireEvent.transitionEnd(panel as HTMLElement, { propertyName: "width" });
 
@@ -150,5 +152,54 @@ describe("PreviewPanel", () => {
 
     requestAnimationFrameSpy.mockRestore();
     cancelAnimationFrameSpy.mockRestore();
+  });
+
+  it("shows file metadata in the header immediately", () => {
+    render(
+      <PreviewPanel
+        open
+        selectedItem={mockFileItem}
+        payload={null}
+        error={null}
+      />
+    );
+
+    expect(screen.getByText("photo.png")).toBeInTheDocument();
+    expect(screen.getByText(/1.2 KB/)).toBeInTheDocument();
+    expect(screen.getByText(/PNG Image/)).toBeInTheDocument();
+  });
+
+  it("shows a skeleton when loading without payload", () => {
+    render(
+      <PreviewPanel
+        open
+        selectedItem={{ ...mockFileItem, name: "report.pdf" }}
+        payload={null}
+        error={null}
+      />
+    );
+
+    expect(screen.getByText("report.pdf")).toBeInTheDocument();
+    // Skeleton should be in the document for PDFs
+    const skeleton = document.querySelector(".animate-pulse");
+    expect(skeleton).toBeInTheDocument();
+  });
+
+  it("renders content immediately when payload is available", () => {
+    render(
+      <PreviewPanel
+        open
+        selectedItem={mockFileItem}
+        payload={{
+          type: "text",
+          content: "hello world",
+          truncated: false,
+          sizeBytes: 11,
+        }}
+        error={null}
+      />
+    );
+
+    expect(screen.getByText("hello world")).toBeInTheDocument();
   });
 });

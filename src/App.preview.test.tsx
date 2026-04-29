@@ -64,7 +64,6 @@ vi.mock("./hooks/usePreview", () => ({
           sizeBytes: 13,
         }
       : null,
-    isLoading: false,
     error: null,
   }),
 }));
@@ -102,22 +101,18 @@ vi.mock("./components/preview/PreviewPanel", async () => {
   return {
     default: ({
       open,
-      selectedName,
+      selectedItem,
       payload,
-      onContentReadyChange,
     }: {
       open: boolean;
-      selectedName?: string;
+      selectedItem?: FileItem | null;
       payload: { content?: string } | null;
-      onContentReadyChange: (ready: boolean) => void;
     }) => {
-      const [contentVisible, setContentVisible] = React.useState(false);
       const [shouldRender, setShouldRender] = React.useState(open);
 
       React.useEffect(() => {
         if (open) {
           setShouldRender(true);
-          setContentVisible(false);
         }
       }, [open]);
 
@@ -127,16 +122,13 @@ vi.mock("./components/preview/PreviewPanel", async () => {
 
       return (
         <aside aria-label="Shared preview" onTransitionEnd={() => {
-          if (open) {
-            setContentVisible(true);
-            onContentReadyChange(true);
-          } else {
+          if (!open) {
             setShouldRender(false);
           }
         }}>
           <div>Preview</div>
-          {selectedName ? <div>{selectedName}</div> : null}
-          {contentVisible && payload?.content ? <div>{payload.content}</div> : null}
+          {selectedItem ? <div>{selectedItem.name}</div> : null}
+          {payload?.content ? <div>{payload.content}</div> : null}
         </aside>
       );
     },
@@ -146,14 +138,6 @@ vi.mock("./components/preview/PreviewPanel", async () => {
 async function renderApp() {
   render(<App />);
   await screen.findByRole("button", { name: "Toggle dual-pane split view" });
-}
-
-function finishPreviewOpenAnimation() {
-  act(() => {
-    fireEvent.transitionEnd(screen.getByText("Preview").closest("aside") as HTMLElement, {
-      propertyName: "width",
-    });
-  });
 }
 
 describe("App preview panel", () => {
@@ -256,10 +240,7 @@ describe("App preview panel", () => {
     });
 
     expect(screen.getByText("Preview")).toBeInTheDocument();
-    expect(screen.queryByText("preview ready: report.pdf")).not.toBeInTheDocument();
-
-    finishPreviewOpenAnimation();
-
+    // Content is now visible immediately without waiting for animation
     expect(screen.getByText("preview ready: report.pdf")).toBeInTheDocument();
 
     act(() => {
@@ -301,8 +282,6 @@ describe("App preview panel", () => {
     act(() => {
       togglePreviewHandler?.();
     });
-
-    finishPreviewOpenAnimation();
 
     expect(screen.getByText("preview ready: report.pdf")).toBeInTheDocument();
 

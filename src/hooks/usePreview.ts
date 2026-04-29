@@ -225,6 +225,7 @@ export function usePreview({ selectedItem, previewOpen }: UsePreviewArgs) {
     requestId.current += 1;
     const currentRequestId = requestId.current;
 
+    setPayload(null);
     setIsLoading(true);
     setError(null);
 

@@ -146,29 +146,19 @@ vi.mock("./components/settings-dialog", () => ({
 }));
 
 vi.mock("./components/preview/PreviewPanel", async () => {
-  const React = await vi.importActual<typeof import("react")>("react");
-
   return {
     default: ({
       open,
-      selectedName,
+      selectedItem,
       payload,
-      onContentReadyChange,
     }: {
       open: boolean;
-      selectedName?: string;
+      selectedItem?: { name: string } | null;
       payload: { content?: string } | null;
-      onContentReadyChange: (ready: boolean) => void;
     }) => {
-      React.useEffect(() => {
-        if (open) {
-          onContentReadyChange(true);
-        }
-      }, [onContentReadyChange, open]);
-
       return open ? (
         <aside aria-label="Shared preview">
-          <div>Preview: {selectedName ?? "none"}</div>
+          <div>Preview: {selectedItem?.name ?? "none"}</div>
           {payload?.content ? <div>{payload.content}</div> : null}
         </aside>
       ) : null;

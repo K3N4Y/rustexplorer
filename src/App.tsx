@@ -85,7 +85,6 @@ function AppContent() {
 
   const [searchActivePane, setSearchActivePane] = useState<PaneId | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewContentReady, setPreviewContentReady] = useState(false);
   const [dualMode, setDualMode] = useState(false);
   const [activePane, setActivePane] = useState<PaneId>("left");
   const [paneUi, setPaneUi] = useState<Record<PaneId, PaneUiState>>({
@@ -336,11 +335,10 @@ function AppContent() {
 
   const {
     payload,
-    isLoading: isPreviewLoading,
     error: previewError,
   } = usePreview({
     selectedItem: selectedPreviewItem,
-    previewOpen: previewOpen && previewContentReady,
+    previewOpen,
   });
 
   const handleSelectionChange = useCallback((paneId: PaneId, item: FileItem | null) => {
@@ -784,11 +782,9 @@ function AppContent() {
 
             <PreviewPanel
               open={previewOpen}
-              selectedName={selectedPreviewItem?.name}
+              selectedItem={selectedPreviewItem}
               payload={payload}
-              isLoading={isPreviewLoading}
               error={previewError}
-              onContentReadyChange={setPreviewContentReady}
             />
           </div>
         </main>

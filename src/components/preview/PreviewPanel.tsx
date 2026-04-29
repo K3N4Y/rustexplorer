@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import PreviewContent from "./PreviewContent";
+import { PreviewSkeleton } from "./skeletons";
 import type { PreviewPayload } from "./types";
+import type { FileItem } from "@/components/file-types";
 
 const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH_RATIO = 0.6;
 const RESIZE_STEP = 24;
-
-type PreviewPanelProps = {
-  open: boolean;
-  selectedName?: string;
-  payload: PreviewPayload | null;
-  isLoading: boolean;
-  error: string | null;
-  onContentReadyChange?: (ready: boolean) => void;
-};
 
 function getMaxPanelWidth() {
   return Math.floor(window.innerWidth * MAX_PANEL_WIDTH_RATIO);
@@ -24,18 +17,79 @@ function clampPanelWidth(width: number) {
   return Math.min(Math.max(width, MIN_PANEL_WIDTH), getMaxPanelWidth());
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function getFileTypeLabel(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ext) return "File";
+  const map: Record<string, string> = {
+    pdf: "PDF Document",
+    png: "PNG Image",
+    jpg: "JPEG Image",
+    jpeg: "JPEG Image",
+    gif: "GIF Image",
+    webp: "WebP Image",
+    svg: "SVG Image",
+    mp4: "MP4 Video",
+    mov: "MOV Video",
+    mp3: "MP3 Audio",
+    wav: "WAV Audio",
+    txt: "Text File",
+    md: "Markdown File",
+    json: "JSON File",
+    csv: "CSV File",
+    js: "JavaScript",
+    ts: "TypeScript",
+    jsx: "React JSX",
+    tsx: "React TSX",
+    rs: "Rust Source",
+    html: "HTML Document",
+    css: "Stylesheet",
+    zip: "ZIP Archive",
+    rar: "RAR Archive",
+    doc: "Word Document",
+    docx: "Word Document",
+    xls: "Excel Spreadsheet",
+    xlsx: "Excel Spreadsheet",
+    pptx: "PowerPoint Presentation",
+  };
+  return map[ext] ?? `${ext.toUpperCase()} File`;
+}
+
+function formatDate(dateString: string | null): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return date.toLocaleDateString(navigator.language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type PreviewPanelProps = {
+  open: boolean;
+  selectedItem?: FileItem | null;
+  payload: PreviewPayload | null;
+  error: string | null;
+};
+
 export default function PreviewPanel({
   open,
-  selectedName,
+  selectedItem,
   payload,
-  isLoading,
   error,
-  onContentReadyChange,
 }: PreviewPanelProps) {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const [shouldRender, setShouldRender] = useState(open);
   const [isExpanded, setIsExpanded] = useState(open);
-  const [contentVisible, setContentVisible] = useState(open);
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const animationFrameRefs = useRef<number[]>([]);
   const previousOpenRef = useRef(open);
@@ -72,16 +126,12 @@ export default function PreviewPanel({
 
     if (open) {
       setShouldRender(true);
-      setContentVisible(false);
-      onContentReadyChange?.(false);
       scheduleExpansion();
       return;
     }
 
-    setContentVisible(false);
-    onContentReadyChange?.(false);
     setIsExpanded(false);
-  }, [cancelScheduledFrames, onContentReadyChange, open, scheduleExpansion]);
+  }, [cancelScheduledFrames, open, scheduleExpansion]);
 
   useEffect(() => {
     return cancelScheduledFrames;
@@ -132,6 +182,18 @@ export default function PreviewPanel({
     return null;
   }
 
+  const metaLines: string[] = [];
+  if (selectedItem && !selectedItem.isDirectory) {
+    metaLines.push(formatBytes(selectedItem.size));
+    metaLines.push(getFileTypeLabel(selectedItem.name));
+    const dateStr = formatDate(selectedItem.modified);
+    if (dateStr) metaLines.push(dateStr);
+  } else if (selectedItem?.isDirectory) {
+    metaLines.push("Directory");
+    const dateStr = formatDate(selectedItem.modified);
+    if (dateStr) metaLines.push(dateStr);
+  }
+
   return (
     <aside
       aria-hidden={!open}
@@ -147,12 +209,6 @@ export default function PreviewPanel({
 
         if (!open && !isExpanded) {
           setShouldRender(false);
-          return;
-        }
-
-        if (open && isExpanded) {
-          setContentVisible(true);
-          onContentReadyChange?.(true);
         }
       }}
       style={{
@@ -210,32 +266,38 @@ export default function PreviewPanel({
           <h2 className="truncate font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
             Preview
           </h2>
-          {selectedName ? (
-            <p className="truncate text-xs text-muted-foreground">{selectedName}</p>
+          {selectedItem ? (
+            <div className="mt-1 space-y-0.5">
+              <p className="truncate text-xs text-muted-foreground">{selectedItem.name}</p>
+              {metaLines.length > 0 ? (
+                <p className="truncate text-[10px] text-muted-foreground/70">
+                  {metaLines.join(" · ")}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
         <div
           data-testid="preview-content-area"
-          className="scrollbar-hidden h-full min-h-0 flex-1 overflow-auto p-4"
+          className="scrollbar-hidden h-full min-h-0 flex-1 overflow-auto"
         >
-          {isLoading ? (
-            <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-              [LOADING PREVIEW]
-            </p>
-          ) : null}
-          {!isLoading && error ? (
-            <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-destructive">
+          {error ? (
+            <p className="p-4 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-destructive">
               [ERROR] {error}
             </p>
           ) : null}
-          {contentVisible && !isLoading && !error && !payload ? (
-            <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-              [SELECT FILE] SPACE TO PREVIEW
-            </p>
-          ) : null}
-          {contentVisible && !isLoading && !error && payload ? (
+          {!error && payload ? (
             <PreviewContent payload={payload} />
+          ) : null}
+          {!error && !payload ? (
+            selectedItem ? (
+              <PreviewSkeleton fileName={selectedItem.name} />
+            ) : (
+              <p className="p-4 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                [SELECT FILE] SPACE TO PREVIEW
+              </p>
+            )
           ) : null}
         </div>
       </div>
