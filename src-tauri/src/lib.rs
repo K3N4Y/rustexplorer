@@ -1,6 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod app_data;
 mod models;
+mod search;
 
 use crate::app_data::{AppData, AppDataManager, generate_id, is_valid_hex};
 use crate::models::file_detail_dto::FileDetailDTO;
