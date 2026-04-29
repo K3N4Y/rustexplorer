@@ -1,5 +1,34 @@
 # Code Deletion Log
 
+## [2026-04-29] Refactor Session
+
+### Unused Dependencies Removed
+- None. `npx depcheck` still reports `tw-animate-css`, `shadcn`, and `tailwindcss`, but each is referenced by `src/App.css` and/or `vite.config.ts`, so they remain in place.
+
+### Unused Files Deleted
+- Removed generated `src-tauri/target/**` build artifacts after confirming they were untracked and already ignored by `src-tauri/.gitignore`.
+
+### Duplicate Code Consolidated
+- `src/components/FilePaneContext.tsx` - replaced duplicated state/action context field lists with `Pick<FilePaneContextValue, ...>` aliases to keep the derived context types in sync without changing runtime behavior.
+
+### Unused Exports Removed
+- `src/components/preview/skeletons/index.ts` - removed unused `ImageSkeleton` and `GenericSkeleton` barrel exports; both remain as local defaults consumed by `PreviewSkeleton`.
+- `src/components/FilePaneContext.tsx` - made `FilePaneContextValue`, `FilePaneStateContextValue`, and `FilePaneActionContextValue` internal after confirming they have no external imports.
+
+### Impact
+- Files deleted: 1 generated build directory (`src-tauri/target`)
+- Dependencies removed: 0
+- Lines of code removed: 5 from unused export cleanup, plus duplicate type declarations consolidated in `src/components/FilePaneContext.tsx`
+- Bundle size reduction: not measured
+
+### Testing
+- `npx knip` - after cleanup, remaining source finding is `useFilePaneContext`, which is still used dynamically in tests.
+- `npx depcheck` - reviewed; reported packages are still in use via CSS or Vite config.
+- `npx ts-prune` - remaining reports are `useFilePaneContext` plus false positives for barrel-exported `PreviewSkeleton` and `PdfSkeleton`.
+- `npm run build` - passed.
+- `npm test` - passed (25 files, 114 tests).
+- `npm run lint` - unavailable; `package.json` has no `lint` script.
+
 ## [2026-04-22] Refactor Session
 
 ### Unused Dependencies Removed

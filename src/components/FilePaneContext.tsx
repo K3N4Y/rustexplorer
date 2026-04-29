@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo } from 'react';
 import type { FileItem } from './file-types';
 import type { PaneId, SortOption, SortOrder, ViewMode } from '../types/pane';
 
-export interface FilePaneContextValue {
+interface FilePaneContextValue {
   currentPath?: string;
   isLoading?: boolean;
   isSearchActive?: boolean;
@@ -32,38 +32,40 @@ export interface FilePaneContextValue {
   onCreateTag?: () => void;
 }
 
-export interface FilePaneStateContextValue {
-  currentPath?: string;
-  isLoading?: boolean;
-  isSearchActive?: boolean;
-  errorMessage?: string | null;
-  paneId?: PaneId;
-  paneLabel?: string;
-  isActivePane?: boolean;
-  viewMode?: ViewMode;
-  sortBy?: SortOption;
-  sortOrder?: SortOrder;
-  selectedIndex?: number;
-}
+type FilePaneStateContextValue = Pick<
+  FilePaneContextValue,
+  'currentPath'
+  | 'isLoading'
+  | 'isSearchActive'
+  | 'errorMessage'
+  | 'paneId'
+  | 'paneLabel'
+  | 'isActivePane'
+  | 'viewMode'
+  | 'sortBy'
+  | 'sortOrder'
+  | 'selectedIndex'
+>;
 
-export interface FilePaneActionContextValue {
-  onLoadFolder: (path: string) => Promise<FileItem[]>;
-  onPathChange?: (path: string, files: FileItem[]) => void;
-  navigateToPath?: (path: string, options?: { recordHistory?: boolean }) => Promise<FileItem[]>;
-  onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
-  onDeleteItem?: (item: FileItem) => Promise<void>;
-  onRetry?: () => Promise<unknown>;
-  onSelectionChange?: (item: FileItem | null) => void;
-  onTogglePreview?: () => void;
-  onSelectedIndexChange?: (index: number) => void;
-  onViewModeChange?: (viewMode: ViewMode) => void;
-  onSortChange?: (sortBy: SortOption, sortOrder: SortOrder) => void;
-  onActivatePane?: (paneId: PaneId) => void;
-  onCopyToInactivePane?: (item: FileItem) => void;
-  onMoveToInactivePane?: (item: FileItem) => void;
-  onCreateWorkspace?: () => void;
-  onCreateTag?: () => void;
-}
+type FilePaneActionContextValue = Pick<
+  FilePaneContextValue,
+  'onLoadFolder'
+  | 'onPathChange'
+  | 'navigateToPath'
+  | 'onRenameItem'
+  | 'onDeleteItem'
+  | 'onRetry'
+  | 'onSelectionChange'
+  | 'onTogglePreview'
+  | 'onSelectedIndexChange'
+  | 'onViewModeChange'
+  | 'onSortChange'
+  | 'onActivatePane'
+  | 'onCopyToInactivePane'
+  | 'onMoveToInactivePane'
+  | 'onCreateWorkspace'
+  | 'onCreateTag'
+>;
 
 const FilePaneStateContext = createContext<FilePaneStateContextValue | undefined>(undefined);
 const FilePaneActionContext = createContext<FilePaneActionContextValue | undefined>(undefined);
@@ -82,38 +84,73 @@ export function FilePaneActionProvider({ children, value }: { children: React.Re
  * This combined provider is primarily intended for testing convenience.
  */
 export function FilePaneProvider({ children, value }: { children: React.ReactNode; value: FilePaneContextValue }) {
-  const stateValue = useMemo(() => ({
-    currentPath: value.currentPath,
-    isLoading: value.isLoading,
-    isSearchActive: value.isSearchActive,
-    errorMessage: value.errorMessage,
-    paneId: value.paneId,
-    paneLabel: value.paneLabel,
-    isActivePane: value.isActivePane,
-    viewMode: value.viewMode,
-    sortBy: value.sortBy,
-    sortOrder: value.sortOrder,
-    selectedIndex: value.selectedIndex,
-  }), [    value.currentPath, value.isLoading, value.isSearchActive, value.errorMessage, value.paneId, value.paneLabel, value.isActivePane, value.viewMode, value.sortBy, value.sortOrder, value.selectedIndex]);
+  const stateValue = useMemo(
+    () => ({
+      currentPath: value.currentPath,
+      isLoading: value.isLoading,
+      isSearchActive: value.isSearchActive,
+      errorMessage: value.errorMessage,
+      paneId: value.paneId,
+      paneLabel: value.paneLabel,
+      isActivePane: value.isActivePane,
+      viewMode: value.viewMode,
+      sortBy: value.sortBy,
+      sortOrder: value.sortOrder,
+      selectedIndex: value.selectedIndex,
+    }),
+    [
+      value.currentPath,
+      value.isLoading,
+      value.isSearchActive,
+      value.errorMessage,
+      value.paneId,
+      value.paneLabel,
+      value.isActivePane,
+      value.viewMode,
+      value.sortBy,
+      value.sortOrder,
+      value.selectedIndex,
+    ]
+  );
 
-  const actionValue = useMemo(() => ({
-    onLoadFolder: value.onLoadFolder,
-    onPathChange: value.onPathChange,
-    navigateToPath: value.navigateToPath,
-    onRenameItem: value.onRenameItem,
-    onDeleteItem: value.onDeleteItem,
-    onRetry: value.onRetry,
-    onSelectionChange: value.onSelectionChange,
-    onTogglePreview: value.onTogglePreview,
-    onSelectedIndexChange: value.onSelectedIndexChange,
-    onViewModeChange: value.onViewModeChange,
-    onSortChange: value.onSortChange,
-    onActivatePane: value.onActivatePane,
-    onCopyToInactivePane: value.onCopyToInactivePane,
-    onMoveToInactivePane: value.onMoveToInactivePane,
-    onCreateWorkspace: value.onCreateWorkspace,
-    onCreateTag: value.onCreateTag,
-  }), [value.onLoadFolder, value.onPathChange, value.navigateToPath, value.onRenameItem, value.onDeleteItem, value.onRetry, value.onSelectionChange, value.onTogglePreview, value.onSelectedIndexChange, value.onViewModeChange, value.onSortChange, value.onActivatePane, value.onCopyToInactivePane, value.onMoveToInactivePane, value.onCreateWorkspace, value.onCreateTag]);
+  const actionValue = useMemo(
+    () => ({
+      onLoadFolder: value.onLoadFolder,
+      onPathChange: value.onPathChange,
+      navigateToPath: value.navigateToPath,
+      onRenameItem: value.onRenameItem,
+      onDeleteItem: value.onDeleteItem,
+      onRetry: value.onRetry,
+      onSelectionChange: value.onSelectionChange,
+      onTogglePreview: value.onTogglePreview,
+      onSelectedIndexChange: value.onSelectedIndexChange,
+      onViewModeChange: value.onViewModeChange,
+      onSortChange: value.onSortChange,
+      onActivatePane: value.onActivatePane,
+      onCopyToInactivePane: value.onCopyToInactivePane,
+      onMoveToInactivePane: value.onMoveToInactivePane,
+      onCreateWorkspace: value.onCreateWorkspace,
+      onCreateTag: value.onCreateTag,
+    }),
+    [
+      value.onLoadFolder,
+      value.onPathChange,
+      value.navigateToPath,
+      value.onRenameItem,
+      value.onDeleteItem,
+      value.onRetry,
+      value.onSelectionChange,
+      value.onTogglePreview,
+      value.onSelectedIndexChange,
+      value.onViewModeChange,
+      value.onSortChange,
+      value.onActivatePane,
+      value.onCopyToInactivePane,
+      value.onMoveToInactivePane,
+      value.onCreateWorkspace,
+      value.onCreateTag,
+    ]
+  );
 
   return (
     <FilePaneStateProvider value={stateValue}>
