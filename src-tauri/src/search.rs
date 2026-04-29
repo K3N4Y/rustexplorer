@@ -228,32 +228,6 @@ struct SearchSnapshot {
 }
 
 #[derive(Debug)]
-struct SnapshotEmitter {
-    last_sent_version: usize,
-}
-
-impl SnapshotEmitter {
-    fn new() -> Self {
-        Self {
-            last_sent_version: 0,
-        }
-    }
-
-    fn send_if_newer(
-        &mut self,
-        tx: &std::sync::mpsc::Sender<SearchSnapshot>,
-        snapshot: SearchSnapshot,
-    ) {
-        if snapshot.version <= self.last_sent_version {
-            return;
-        }
-
-        self.last_sent_version = snapshot.version;
-        let _ = tx.send(snapshot);
-    }
-}
-
-#[derive(Debug)]
 struct SearchSnapshotState {
     ranked: RankedResults,
     cadence: SnapshotCadence,
