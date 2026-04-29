@@ -1,5 +1,9 @@
 use crate::models::file_detail_dto::FileDetailDTO;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -293,11 +297,6 @@ impl SearchSnapshotState {
     }
 }
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex, OnceLock,
-};
-
 #[derive(Debug, Clone)]
 struct SearchCancellationToken {
     cancelled: Arc<AtomicBool>,
@@ -311,11 +310,11 @@ impl SearchCancellationToken {
     }
 
     fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
+        self.cancelled.store(true, Ordering::Relaxed);
     }
 
     fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.cancelled.load(Ordering::Relaxed)
     }
 }
 
@@ -525,5 +524,26 @@ mod tests {
         token.cancel();
 
         assert!(!should_emit_done(&token));
+    }
+
+    #[test]
+    fn active_search_should_emit_done() {
+        let token = SearchCancellationToken::new();
+
+        assert!(should_emit_done(&token));
+    }
+
+    #[test]
+    fn cancel_active_does_not_panic_when_empty() {
+        let registry = SearchCancellationRegistry::default();
+        registry.cancel_active();
+    }
+
+    #[test]
+    fn search_cancellation_registry_returns_singleton() {
+        let first = search_cancellation_registry();
+        let second = search_cancellation_registry();
+
+        assert!(std::ptr::eq(first, second));
     }
 }
