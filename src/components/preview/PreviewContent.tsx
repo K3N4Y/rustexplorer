@@ -1,21 +1,21 @@
-import React, { Suspense } from "react";
+import React from "react";
 import type { PreviewPayload } from "./types";
 
-const AudioRenderer = React.lazy(() => import("./renderers/AudioRenderer"));
-const BinaryRenderer = React.lazy(() => import("./renderers/BinaryRenderer"));
-const DirectoryRenderer = React.lazy(() => import("./renderers/DirectoryRenderer"));
-const ImageRenderer = React.lazy(() => import("./renderers/ImageRenderer"));
-const MarkdownRenderer = React.lazy(() => import("./renderers/MarkdownRenderer"));
-const PdfRenderer = React.lazy(() => import("./renderers/PdfRenderer"));
-const TextRenderer = React.lazy(() => import("./renderers/TextRenderer"));
-const VideoRenderer = React.lazy(() => import("./renderers/VideoRenderer"));
-const CodeRenderer = React.lazy(() => import("./renderers/CodeRenderer"));
-const CsvRenderer = React.lazy(() => import("./renderers/CsvRenderer"));
-const JsonRenderer = React.lazy(() => import("./renderers/JsonRenderer"));
+import AudioRenderer from "./renderers/AudioRenderer";
+import BinaryRenderer from "./renderers/BinaryRenderer";
+import DirectoryRenderer from "./renderers/DirectoryRenderer";
+import ImageRenderer from "./renderers/ImageRenderer";
+import MarkdownRenderer from "./renderers/MarkdownRenderer";
+import PdfRenderer from "./renderers/PdfRenderer";
+import TextRenderer from "./renderers/TextRenderer";
+import VideoRenderer from "./renderers/VideoRenderer";
+import CodeRenderer from "./renderers/CodeRenderer";
+import CsvRenderer from "./renderers/CsvRenderer";
+import JsonRenderer from "./renderers/JsonRenderer";
 
 export default function PreviewContent({ payload }: { payload: PreviewPayload }) {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Cargando preview...</div>}>
+    <React.Fragment>
       {(() => {
         switch (payload.type) {
           case "text":
@@ -42,6 +42,6 @@ export default function PreviewContent({ payload }: { payload: PreviewPayload })
             return <JsonRenderer payload={payload} />;
         }
       })()}
-    </Suspense>
+    </React.Fragment>
   );
 }
