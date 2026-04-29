@@ -209,6 +209,7 @@ function FilePane({
     () => ({
       onLoadFolder: loadFolder,
       onPathChange: handlePathChange,
+      navigateToPath,
       onRenameItem: renameItem,
       onDeleteItem: deleteItem,
       onRetry: handleRetry,
@@ -226,6 +227,7 @@ function FilePane({
     [
       loadFolder,
       handlePathChange,
+      navigateToPath,
       renameItem,
       deleteItem,
       handleRetry,

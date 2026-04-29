@@ -135,16 +135,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
   }, [selectedIndex, visibleFiles]);
 
   const navigateToPath = useCallback(async (path: string) => {
-    try {
-      const nextFiles = await actionCtx.onLoadFolder(path);
-      actionCtx.onPathChange?.(path, nextFiles);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to load folder:', error);
+    if (actionCtx.navigateToPath) {
+      try {
+        await actionCtx.navigateToPath(path);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to load folder:', error);
+        }
+        toast.error('Failed to load folder');
       }
-      toast.error('Failed to load folder');
+    } else {
+      // Fallback si no está disponible
+      try {
+        const nextFiles = await actionCtx.onLoadFolder(path);
+        actionCtx.onPathChange?.(path, nextFiles);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to load folder:', error);
+        }
+        toast.error('Failed to load folder');
+      }
     }
-  }, [actionCtx.onLoadFolder, actionCtx.onPathChange]);
+  }, [actionCtx.navigateToPath, actionCtx.onLoadFolder, actionCtx.onPathChange]);
 
   const openItem = useCallback(async (item: FileItem) => {
     if (isFolder(item)) {

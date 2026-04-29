@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SetStateAction } from "react";
 import type { FileItem } from "../components/file-types";
-import { getParentPath } from "../lib/path-utils";
+import { getParentPath, normalizeWindowsPath } from "../lib/path-utils";
 import { toast } from "sonner";
 
 
@@ -39,7 +39,7 @@ export function useFilePaneNavigation(initialPath: string) {
 
     return response.map((item) => ({
       name: item.name,
-      path: item.path,
+      path: normalizeWindowsPath(item.path),
       size: item.size,
       modified: item.modified,
       isDirectory: item.is_dir,
@@ -67,18 +67,19 @@ export function useFilePaneNavigation(initialPath: string) {
           return nextFiles;
         }
 
+        const normalizedPath = normalizeWindowsPath(path);
         setFiles(nextFiles);
-        updateCurrentPath(path);
+        updateCurrentPath(normalizedPath);
 
         if (options?.recordHistory !== false) {
           setNavigationHistory((previous) => {
             const nextHistory = previous.entries.slice(0, previous.index + 1);
-            if (nextHistory[nextHistory.length - 1] === path) {
+            if (nextHistory[nextHistory.length - 1] === normalizedPath) {
               return previous;
             }
 
             return {
-              entries: [...nextHistory, path],
+              entries: [...nextHistory, normalizedPath],
               index: nextHistory.length,
             };
           });
@@ -101,14 +102,15 @@ export function useFilePaneNavigation(initialPath: string) {
   );
 
   const resetToInitialPath = useCallback(async () => {
-    updateCurrentPath(initialPath);
+    const normalizedInitialPath = normalizeWindowsPath(initialPath);
+    updateCurrentPath(normalizedInitialPath);
     setNavigationHistory({
-      entries: [initialPath],
+      entries: [normalizedInitialPath],
       index: 0,
     });
-    await navigateToPath(initialPath, { recordHistory: false });
+    await navigateToPath(normalizedInitialPath, { recordHistory: false });
     setNavigationHistory({
-      entries: [initialPath],
+      entries: [normalizedInitialPath],
       index: 0,
     });
   }, [initialPath, navigateToPath, updateCurrentPath]);
@@ -187,10 +189,11 @@ export function useFilePaneNavigation(initialPath: string) {
       try {
         const nextFiles = await loadFolder(initialPath);
         if (!cancelled) {
+          const normalizedInitialPath = normalizeWindowsPath(initialPath);
           setFiles(nextFiles);
-          updateCurrentPath(initialPath);
+          updateCurrentPath(normalizedInitialPath);
           setNavigationHistory({
-            entries: [initialPath],
+            entries: [normalizedInitialPath],
             index: 0,
           });
         }

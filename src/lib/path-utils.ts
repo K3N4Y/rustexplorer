@@ -3,6 +3,14 @@ interface BreadcrumbItem {
   path: string;
 }
 
+export function normalizeWindowsPath(path: string): string {
+  // Strip Windows extended-length path prefix (\\?\)
+  if (path.startsWith('\\\\?\\')) {
+    return path.slice(4);
+  }
+  return path;
+}
+
 export function normalizePath(path: string): string {
   const trimmed = path.trim();
 
@@ -10,7 +18,8 @@ export function normalizePath(path: string): string {
     return trimmed;
   }
 
-  const normalized = trimmed.replace(/\//g, '\\').replace(/\\+$/, '');
+  let normalized = trimmed.replace(/\//g, '\\').replace(/\\+$/, '');
+  normalized = normalizeWindowsPath(normalized);
 
   if (normalized.endsWith(':')) {
     return `${normalized}\\`;

@@ -9,6 +9,7 @@ export interface FilePaneContextValue {
   errorMessage?: string | null;
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
+  navigateToPath?: (path: string, options?: { recordHistory?: boolean }) => Promise<FileItem[]>;
   onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
   onDeleteItem?: (item: FileItem) => Promise<void>;
   onRetry?: () => Promise<unknown>;
@@ -48,6 +49,7 @@ export interface FilePaneStateContextValue {
 export interface FilePaneActionContextValue {
   onLoadFolder: (path: string) => Promise<FileItem[]>;
   onPathChange?: (path: string, files: FileItem[]) => void;
+  navigateToPath?: (path: string, options?: { recordHistory?: boolean }) => Promise<FileItem[]>;
   onRenameItem?: (item: FileItem, newName: string) => Promise<void>;
   onDeleteItem?: (item: FileItem) => Promise<void>;
   onRetry?: () => Promise<unknown>;
@@ -97,6 +99,7 @@ export function FilePaneProvider({ children, value }: { children: React.ReactNod
   const actionValue = useMemo(() => ({
     onLoadFolder: value.onLoadFolder,
     onPathChange: value.onPathChange,
+    navigateToPath: value.navigateToPath,
     onRenameItem: value.onRenameItem,
     onDeleteItem: value.onDeleteItem,
     onRetry: value.onRetry,
@@ -110,7 +113,7 @@ export function FilePaneProvider({ children, value }: { children: React.ReactNod
     onMoveToInactivePane: value.onMoveToInactivePane,
     onCreateWorkspace: value.onCreateWorkspace,
     onCreateTag: value.onCreateTag,
-  }), [value.onLoadFolder, value.onPathChange, value.onRenameItem, value.onDeleteItem, value.onRetry, value.onSelectionChange, value.onTogglePreview, value.onSelectedIndexChange, value.onViewModeChange, value.onSortChange, value.onActivatePane, value.onCopyToInactivePane, value.onMoveToInactivePane, value.onCreateWorkspace, value.onCreateTag]);
+  }), [value.onLoadFolder, value.onPathChange, value.navigateToPath, value.onRenameItem, value.onDeleteItem, value.onRetry, value.onSelectionChange, value.onTogglePreview, value.onSelectedIndexChange, value.onViewModeChange, value.onSortChange, value.onActivatePane, value.onCopyToInactivePane, value.onMoveToInactivePane, value.onCreateWorkspace, value.onCreateTag]);
 
   return (
     <FilePaneStateProvider value={stateValue}>
