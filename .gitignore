@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 .worktrees/
 docs/
+
+# Environment variables
+.env
+.env.local
+.env.*
