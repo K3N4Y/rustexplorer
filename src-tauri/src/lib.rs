@@ -57,6 +57,8 @@ pub(crate) struct SearchResultChunkEvent {
 pub(crate) struct SearchDoneEvent {
     request_id: String,
     total: usize,
+    returned_count: usize,
+    is_truncated: bool,
 }
 
 #[derive(Serialize, Debug)]
@@ -258,6 +260,8 @@ async fn search_with_ignore(
             SearchDoneEvent {
                 request_id,
                 total: total_found,
+                returned_count: total_found,
+                is_truncated: false,
             },
         );
 

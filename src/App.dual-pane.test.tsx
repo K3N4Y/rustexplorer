@@ -129,6 +129,7 @@ vi.mock("./components/SearchBar", () => ({
     onSearchStateChange,
   }: {
     onSearchStateChange: (isActive: boolean) => void;
+    activePane?: string;
   }) => (
     <div>
       <button type="button" onClick={() => onSearchStateChange(true)}>
@@ -306,7 +307,7 @@ describe("App dual-pane lifecycle", () => {
     expect(navigationMock.rightPane.resetToInitialPath).toHaveBeenCalledTimes(resetsAfterInitialEnable + 1);
   });
 
-  it("marks search active only on the active pane", async () => {
+  it("keeps search active on the originating pane after switching panes", async () => {
     await renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle dual-pane split view" }));
@@ -317,7 +318,7 @@ describe("App dual-pane lifecycle", () => {
 
     fireEvent.click(within(screen.getByLabelText("Right file pane")).getByRole("button", { name: "Activate right" }));
 
-    expect(screen.getByLabelText("Left file pane")).toHaveAttribute("data-search-active", "false");
+    expect(screen.getByLabelText("Left file pane")).toHaveAttribute("data-search-active", "true");
     expect(screen.getByLabelText("Right file pane")).toHaveAttribute("data-search-active", "false");
   });
 

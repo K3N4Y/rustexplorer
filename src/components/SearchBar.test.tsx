@@ -38,6 +38,7 @@ function renderSearchBar() {
   render(
     <InputGroupDemo
       currentPath="C:/project"
+      activePane="left"
       onSearchResults={onSearchResults}
       onSearchStateChange={onSearchStateChange}
       onClearSearch={onClearSearch}
@@ -171,5 +172,84 @@ describe("InputGroupDemo fuzzy search", () => {
       "search_files_fuzzy",
       expect.any(Object),
     );
+  });
+
+  it("shows truncated count label when results are capped", async () => {
+    renderSearchBar();
+
+    const input = screen.getByPlaceholderText("Buscar en esta carpeta...");
+    fireEvent.change(input, { target: { value: "appcs" } });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const activeRequestId = invokeMock.mock.calls[0][1].requestId;
+    listeners.get("search-results-chunk")?.({
+      payload: {
+        request_id: activeRequestId,
+        items: [
+          { name: "App.css", path: "C:/project/src/App.css", size: 2, modified: null, is_dir: false },
+          { name: "App.tsx", path: "C:/project/src/App.tsx", size: 3, modified: null, is_dir: false },
+        ],
+      },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(80);
+    });
+
+    listeners.get("search-done")?.({
+      payload: {
+        request_id: activeRequestId,
+        total: 5,
+        returned_count: 2,
+        is_truncated: true,
+      },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(screen.getByText("2 de 5")).toBeInTheDocument();
+  });
+
+  it("shows total count without truncation when all results fit", async () => {
+    renderSearchBar();
+
+    const input = screen.getByPlaceholderText("Buscar en esta carpeta...");
+    fireEvent.change(input, { target: { value: "appcs" } });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const activeRequestId = invokeMock.mock.calls[0][1].requestId;
+    listeners.get("search-results-chunk")?.({
+      payload: {
+        request_id: activeRequestId,
+        items: [
+          { name: "App.css", path: "C:/project/src/App.css", size: 2, modified: null, is_dir: false },
+        ],
+      },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(80);
+    });
+
+    listeners.get("search-done")?.({
+      payload: {
+        request_id: activeRequestId,
+        total: 1,
+        returned_count: 1,
+        is_truncated: false,
+      },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });

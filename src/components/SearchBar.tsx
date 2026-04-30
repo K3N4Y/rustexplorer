@@ -19,6 +19,7 @@ const RESULT_FLUSH_MS = 80;
 
 interface InputGroupDemoProps {
   currentPath: string;
+  activePane: string;
   onSearchResults: (files: FileItem[]) => void;
   onSearchStateChange: (isActive: boolean) => void;
   onClearSearch: () => Promise<unknown>;
@@ -38,16 +39,19 @@ interface SearchResultPayload {
 interface SearchDonePayload {
   request_id: string;
   total: number;
+  returned_count: number;
+  is_truncated: boolean;
 }
 
 export function InputGroupDemo({
   currentPath,
+  activePane,
   onSearchResults,
   onSearchStateChange,
   onClearSearch,
 }: InputGroupDemoProps) {
   const [search, setSearch] = useState("");
-  const [resultsCount, setResultsCount] = useState(0);
+  const [resultsLabel, setResultsLabel] = useState("0");
   const [isSearching, setIsSearching] = useState(false);
   const { searchThreads } = useSettings();
 
@@ -94,7 +98,7 @@ export function InputGroupDemo({
               return;
             }
 
-            setResultsCount(streamedFilesRef.current.length);
+            setResultsLabel(String(streamedFilesRef.current.length));
             onSearchResultsRef.current([...streamedFilesRef.current]);
           }, RESULT_FLUSH_MS);
         }
@@ -112,7 +116,11 @@ export function InputGroupDemo({
         }
 
         onSearchResultsRef.current([...streamedFilesRef.current]);
-        setResultsCount(event.payload.total);
+        if (event.payload.is_truncated) {
+          setResultsLabel(`${event.payload.returned_count} de ${event.payload.total}`);
+        } else {
+          setResultsLabel(String(event.payload.total));
+        }
         setIsSearching(false);
 
         activeRequestRef.current = null;
@@ -136,7 +144,7 @@ export function InputGroupDemo({
 
   const resetSearchUi = useCallback(() => {
     setIsSearching(false);
-    setResultsCount(0);
+    setResultsLabel("0");
     onSearchStateChangeRef.current(false);
   }, []);
 
@@ -164,7 +172,7 @@ export function InputGroupDemo({
     streamedFilesRef.current = [];
 
     setIsSearching(true);
-    setResultsCount(0);
+    setResultsLabel("0");
     onSearchStateChangeRef.current(true);
     onSearchResultsRef.current([]);
 
@@ -188,9 +196,13 @@ export function InputGroupDemo({
   const performSearchRef = useRef(performSearch);
   performSearchRef.current = performSearch;
 
+  const prevPathRef = useRef(currentPath);
+  const prevActivePaneRef = useRef(activePane);
+
   useEffect(() => {
     if (debounceTimerRef.current !== null) {
       window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
 
     if (!search.trim()) {
@@ -222,6 +234,16 @@ export function InputGroupDemo({
   }, [search, currentPath, searchThreads, resetSearchUi]);
 
   useEffect(() => {
+    const pathChanged = prevPathRef.current !== currentPath;
+    const paneChanged = prevActivePaneRef.current !== activePane;
+
+    prevPathRef.current = currentPath;
+    prevActivePaneRef.current = activePane;
+
+    // Only reset search when navigating within the same pane;
+    // preserve search state when switching panes.
+    if (!pathChanged || paneChanged) return;
+
     if (debounceTimerRef.current !== null) {
       window.clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
@@ -237,7 +259,7 @@ export function InputGroupDemo({
     activeRequestRef.current = null;
     streamedFilesRef.current = [];
     resetSearchUi();
-  }, [currentPath, resetSearchUi]);
+  }, [currentPath, activePane, resetSearchUi]);
 
   return (
     <InputGroup className="max-w-sm">
@@ -251,7 +273,7 @@ export function InputGroupDemo({
         onChange={(e) => setSearch(e.target.value)}
       />
       <InputGroupAddon align="inline-end" className="text-[11px] font-bold uppercase tracking-[0.12em]">
-        {isSearching ? "..." : `${resultsCount}`}
+        {isSearching ? "..." : resultsLabel}
       </InputGroupAddon>
       {search && (
         <InputGroupAddon align="inline-end">

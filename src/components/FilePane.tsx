@@ -180,7 +180,7 @@ function FilePane({
     () => ({
       currentPath: currentPath,
       isLoading,
-      isSearchActive: searchActivePane === paneId && activePane === paneId,
+      isSearchActive: searchActivePane === paneId,
       errorMessage,
       paneId,
       paneLabel,

@@ -700,8 +700,9 @@ function AppContent() {
           </div>
 
           <div className="flex w-full items-center gap-3 md:w-auto">
-            <InputGroupDemo 
+            <InputGroupDemo
               currentPath={currentPath}
+              activePane={activePane}
               onSearchStateChange={(isActive) => setSearchActivePane(isActive ? activePane : null)}
               onSearchResults={(results) => setFiles(results)}
               onClearSearch={() => navigateToPath(currentPath, { recordHistory: false })}

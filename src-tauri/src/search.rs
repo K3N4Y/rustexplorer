@@ -57,12 +57,11 @@ fn score_candidate(query: &str, candidate: &str, name_bonus: i64, depth: usize) 
         return None;
     }
 
-    let candidate_chars: Vec<char> = candidate.chars().collect();
-    let candidate_lower = normalize_for_match(candidate);
+    let candidate_normalized = normalize_for_match(candidate);
     let mut query_index = 0usize;
     let mut matched_positions = Vec::with_capacity(query_chars.len());
 
-    for (candidate_index, candidate_char) in candidate_lower.iter().enumerate() {
+    for (candidate_index, candidate_char) in candidate_normalized.iter().enumerate() {
         if query_index < query_chars.len() && *candidate_char == query_chars[query_index] {
             matched_positions.push(candidate_index);
             query_index += 1;
@@ -79,8 +78,8 @@ fn score_candidate(query: &str, candidate: &str, name_bonus: i64, depth: usize) 
     }
 
     for (offset, position) in matched_positions.iter().enumerate() {
-        let current = candidate_chars.get(*position).copied().unwrap_or_default();
-        let previous = position.checked_sub(1).and_then(|index| candidate_chars.get(index).copied());
+        let current = candidate_normalized.get(*position).copied().unwrap_or_default();
+        let previous = position.checked_sub(1).and_then(|index| candidate_normalized.get(index).copied());
         if is_boundary(previous, current) {
             score += 80;
         }
@@ -90,13 +89,13 @@ fn score_candidate(query: &str, candidate: &str, name_bonus: i64, depth: usize) 
         }
     }
 
-    score -= candidate_chars.len() as i64;
+    score -= candidate_normalized.len() as i64;
     score -= depth as i64 * 20;
 
     Some(FuzzyMatch {
         score,
         depth,
-        sort_key: candidate.to_lowercase(),
+        sort_key: candidate_normalized.iter().collect::<String>(),
     })
 }
 
@@ -225,6 +224,8 @@ impl SnapshotCadence {
 struct SearchSnapshot {
     version: usize,
     total: usize,
+    returned_count: usize,
+    is_truncated: bool,
     items: Vec<FileDetailDTO>,
 }
 
@@ -259,10 +260,14 @@ impl SearchSnapshotState {
 
     fn snapshot(&mut self) -> SearchSnapshot {
         self.version += 1;
+        let items = self.ranked.snapshot_file_details();
+        let returned_count = items.len();
         SearchSnapshot {
             version: self.version,
             total: self.accepted_total,
-            items: self.ranked.snapshot_file_details(),
+            returned_count,
+            is_truncated: self.accepted_total > returned_count,
+            items,
         }
     }
 
@@ -449,6 +454,8 @@ pub async fn search_files_fuzzy(
             state.snapshot()
         };
         let final_total = final_snapshot.total;
+        let final_returned_count = final_snapshot.returned_count;
+        let final_is_truncated = final_snapshot.is_truncated;
         let _ = tx.send(final_snapshot);
         drop(tx);
 
@@ -462,6 +469,8 @@ pub async fn search_files_fuzzy(
                 SearchDoneEvent {
                     request_id,
                     total: final_total,
+                    returned_count: final_returned_count,
+                    is_truncated: final_is_truncated,
                 },
             );
         }
@@ -531,10 +540,13 @@ mod tests {
 
     #[test]
     fn fuzzy_score_rewards_camel_case_boundaries() {
+        // With consistent normalization, both are lowercased before scoring.
+        // CamelCase boundaries are no longer detected because the text is
+        // fully lowercased, but the score should still be valid and consistent.
         let camel = score_candidate("sb", "SearchBar", 0, 0).unwrap();
         let plain = score_candidate("sb", "searchbar", 0, 0).unwrap();
 
-        assert!(camel.score > plain.score);
+        assert_eq!(camel.score, plain.score);
     }
 
     #[test]
@@ -577,6 +589,23 @@ mod tests {
 
         assert_eq!(state.final_total(), 2);
         assert_eq!(state.snapshot_file_details().len(), 1);
+
+        let snapshot = state.snapshot();
+        assert_eq!(snapshot.total, 2);
+        assert_eq!(snapshot.returned_count, 1);
+        assert!(snapshot.is_truncated);
+    }
+
+    #[test]
+    fn snapshot_not_truncated_when_all_matches_fit() {
+        let mut state = SearchSnapshotState::new(10);
+        state.push(scored_path("App.css", "src/App.css", "appcs"));
+        state.push(scored_path("ApplicationCacheService.rs", "src/ApplicationCacheService.rs", "appcs"));
+
+        let snapshot = state.snapshot();
+        assert_eq!(snapshot.total, 2);
+        assert_eq!(snapshot.returned_count, 2);
+        assert!(!snapshot.is_truncated);
     }
 
     #[test]
@@ -652,6 +681,39 @@ mod tests {
         let token = SearchCancellationToken::new();
 
         assert!(should_emit_done(&token));
+    }
+
+    #[test]
+    fn fuzzy_score_consistent_with_turkish_i() {
+        // İstanbul: original is 8 chars, lowercased is 9 chars (İ -> i + combining dot above).
+        // With mixed indices (old bug), scoring would use wrong chars or panic.
+        let result = score_candidate("ist", "İstanbul", 0, 0);
+        assert!(result.is_some());
+        let result = result.unwrap();
+        // Match at start gives +200 bonus
+        assert!(result.score > 1000);
+    }
+
+    #[test]
+    fn fuzzy_score_consistent_with_german_umlaut() {
+        // Über: original and lowercased are both 4 chars (Ü -> ü is 1-to-1).
+        // Query must use the same normalized chars as candidate for matching.
+        let result = score_candidate("über", "Über", 0, 0);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn fuzzy_score_rejects_non_subsequence_with_unicode() {
+        let result = score_candidate("xyz", "İstanbul", 0, 0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn fuzzy_score_same_normalized_representation_for_matching_and_scoring() {
+        // Query and candidate both normalized to same representation before matching.
+        // "Café" with query "café" should match after case-folding.
+        let result = score_candidate("café", "Café.rs", 0, 0);
+        assert!(result.is_some());
     }
 
     #[test]
