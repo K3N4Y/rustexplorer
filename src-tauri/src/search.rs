@@ -1,8 +1,7 @@
-use crate::{DEFAULT_EXCLUDED_SEARCH_DIRS, SearchDoneEvent, SearchResultChunkEvent, should_search_entry};
+use crate::{SearchDoneEvent, SearchResultChunkEvent, should_search_entry};
 use crate::models::file_detail_dto::FileDetailDTO;
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
-use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -269,14 +268,6 @@ impl SearchSnapshotState {
             is_truncated: self.accepted_total > returned_count,
             items,
         }
-    }
-
-    fn snapshot_file_details(&self) -> Vec<FileDetailDTO> {
-        self.ranked.snapshot_file_details()
-    }
-
-    fn final_total(&self) -> usize {
-        self.accepted_total
     }
 }
 
@@ -586,9 +577,6 @@ mod tests {
         let mut state = SearchSnapshotState::new(1);
         state.push(scored_path("App.css", "src/App.css", "appcs"));
         state.push(scored_path("ApplicationCacheService.rs", "src/ApplicationCacheService.rs", "appcs"));
-
-        assert_eq!(state.final_total(), 2);
-        assert_eq!(state.snapshot_file_details().len(), 1);
 
         let snapshot = state.snapshot();
         assert_eq!(snapshot.total, 2);
